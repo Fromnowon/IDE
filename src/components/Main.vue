@@ -22,7 +22,7 @@
             inactive-text="浅色"
           >
           </el-switch>
-          <h4>运行</h4>
+          <h4>调试</h4>
           <el-button
             type="primary"
             style="width: 100%; margin-bottom: 20px"
@@ -57,7 +57,7 @@ import axios from "axios";
 import { codemirror } from "vue-codemirror-lite";
 
 // theme
-import "codemirror/theme/idea.css";
+import "codemirror/theme/solarized.css";
 import "codemirror/theme/darcula.css";
 
 // mode
@@ -99,7 +99,7 @@ export default {
         autoCloseBrackets: true,
         mode: "text/x-c++src",
         lineNumbers: true,
-        theme: "idea",
+        theme: "solarized",
         line: true,
         // 代码折叠
         foldGutter: true,
@@ -115,9 +115,10 @@ export default {
     let _this = this;
     let Base64 = require("js-base64").Base64;
 
-    // 读取code
+    // 读取本地信息
     let code = localStorage.getItem("codemirror_code");
     if (code) _this.code = Base64.decode(code);
+    this.mode = localStorage.getItem("codemirror_theme") == "true";
 
     this.editor.focus();
     this.bindKey();
@@ -128,14 +129,17 @@ export default {
     };
 
     setInterval(() => {
-      if (_this.code.length > 0) {
-        let code = Base64.encode(_this.code);
-        localStorage.setItem("codemirror_code", code);
-        console.log("code saved");
-      }
+      if (_this.code.length > 0) this.save();
     }, 30000);
   },
   methods: {
+    save() {
+      let Base64 = require("js-base64").Base64;
+      let code = Base64.encode(this.code);
+      localStorage.setItem("codemirror_theme", this.mode); // 保存主题,true为深色
+      localStorage.setItem("codemirror_code", code); // 保存代码
+      console.log("code saved");
+    },
     go() {
       window.open("https://github.com/Fromnowon/IDE");
     },
@@ -200,7 +204,6 @@ export default {
     },
     bindKey() {
       const _this = this;
-      let Base64 = require("js-base64").Base64;
       window.addEventListener(
         "keydown",
         function (e) {
@@ -210,11 +213,7 @@ export default {
           }
           if ((e.key == "s" || e.key == "S") && e.altKey) {
             e.preventDefault();
-            if (_this.code.length > 0) {
-              let code = Base64.encode(_this.code);
-              localStorage.setItem("codemirror_code", code);
-              console.log("code saved");
-            }
+            if (_this.code.length > 0) _this.save();
           }
         },
         false
@@ -230,7 +229,8 @@ export default {
   watch: {
     mode(v) {
       if (v) this.editor.setOption("theme", "darcula");
-      else this.editor.setOption("theme", "idea");
+      else this.editor.setOption("theme", "solarized");
+      localStorage.setItem("codemirror_theme", this.mode); // 保存主题,true为深色
     },
     span_editor(v) {
       this.openDebugFlag = !this.openDebugFlag;
@@ -255,11 +255,14 @@ export default {
 .CodeMirror {
   padding-right: 3px;
   border-right: 0.1pt solid rgba(0, 0, 0, 0.3);
-
+    line-height: 1.45em;
   font-size: 12pt !important;
 }
 .CodeMirror-scroll {
   padding-top: 10px;
+}
+.CodeMirror-linenumber {
+  width: 28px;
 }
 .debug {
   padding: 20px;
