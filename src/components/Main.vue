@@ -10,7 +10,8 @@
       </el-col>
       <el-col :span="24 - span_editor" class="debug_div">
         <div class="info">
-          
+          <span style="font-size: 10pt">Develop by Zihang : </span>
+          <el-button type="text" @click="go()">Github</el-button>
         </div>
         <div v-show="span_editor != 24" class="debug">
           <h4>设置</h4>
@@ -135,6 +136,9 @@ export default {
     }, 30000);
   },
   methods: {
+    go() {
+      window.open("https://github.com/Fromnowon/IDE");
+    },
     openDebug() {
       this.span_editor = 40 - this.span_editor;
     },
@@ -280,6 +284,6 @@ export default {
   z-index: 9;
   position: absolute;
   bottom: 30px;
-  right: 30px
+  right: 30px;
 }
 </style>
