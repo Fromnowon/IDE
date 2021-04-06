@@ -118,7 +118,7 @@
                       >
                       </el-option> </el-select
                   ></el-col>
-                  <el-col :span="12"  style="padding-left: 10px"
+                  <el-col :span="12" style="padding-left: 10px"
                     ><p>提示</p>
                     <el-switch
                       v-model="autoCmp"
@@ -395,9 +395,6 @@ export default {
           this.$alert("请求异常，请检查服务器地址", "错误", {
             confirmButtonText: "确定",
             type: "error",
-            callback: (action) => {
-              _this.$refs.server.select();
-            },
           });
         });
     },
