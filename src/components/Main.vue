@@ -144,6 +144,7 @@
               >运 行</el-button
             >
             <el-input
+              :disabled="ondebug"
               type="textarea"
               ref="stdin"
               :autosize="{ minRows: 3, maxRows: 10 }"
@@ -153,6 +154,7 @@
             >
             </el-input>
             <el-input
+              :disabled="ondebug"
               type="textarea"
               placeholder="stdout"
               v-model="stdout"
@@ -224,6 +226,7 @@ export default {
       window.onbeforeunload = () => {
         this.save();
       };
+      this.getKeywords();
     },
     ace_editorInit(editor) {
       require("brace/ext/language_tools");
@@ -240,20 +243,20 @@ export default {
       });
       // 初始化
       this.loadConf();
-      // 补全
-      this.$refs.ace_editor.setCompleteData([
-        { meta: "custom", caption: "include", value: "include", score: 1000 },
-        { meta: "custom", caption: "iostream", value: "iostream", score: 1000 },
-        {
-          meta: "custom",
-          caption: "algorithm",
-          value: "algorithm",
-          score: 1000,
-        },
-        { meta: "custom", caption: "cstring", value: "cstring", score: 1000 },
-      ]);
       this.editor = editor;
       editor.focus();
+    },
+    getKeywords() {
+      // 补全，文件从远程拉取
+      axios.get("http://106.52.130.81/lib/keywords.json").then((res) => {
+        let keywords = res.data,
+          key_arr = [];
+        console.log(keywords);
+        keywords.forEach((item) => {
+          key_arr.push(item);
+        });
+        this.$refs.ace_editor.setCompleteData(key_arr);
+      });
     },
     loadConf() {
       // 读取信息
@@ -410,7 +413,7 @@ export default {
               _this.token +
               "?base64_encoded=true"
           )
-          .then(function (response) {
+          .then((response) => {
             let e = response.data;
             if (e.status.id != 1 && e.status.id != 2) {
               clearInterval(loop);
@@ -444,13 +447,14 @@ export default {
       window.addEventListener(
         "keydown",
         function (e) {
-          if ((e.key == "r" || e.key == "R") && e.altKey) {
-            e.preventDefault();
-            _this.span_editor = 40 - _this.span_editor;
-          }
           if (e.keyCode == 13 && e.altKey) {
             e.preventDefault();
-            _this.debug();
+            if (_this.openDebugFlag) _this.debug();
+            else _this.span_editor = 40 - _this.span_editor;
+          }
+          if (e.keyCode == 27) {
+            e.preventDefault();
+            if (_this.openDebugFlag) _this.span_editor = 40 - _this.span_editor;
           }
           if ((e.key == "s" || e.key == "S") && e.altKey) {
             e.preventDefault();
