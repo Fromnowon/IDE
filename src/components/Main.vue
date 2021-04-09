@@ -21,13 +21,24 @@
             :class="barClass + ' bar'"
             :style="{ height: barHeight + 'px', lineHeight: barHeight + 'px' }"
           >
-            {{ "COMPLIER : " }}
-            <span style="font-weight: bold">{{
-              mode === "c_cpp" ? "C++ (GCC 9.2.0)" : "Python (3.8.1)"
-            }}</span>
-            <el-divider direction="vertical"></el-divider>
-            {{ "AUTOCOMPLETE : " }}
-            <span style="font-weight: bold">{{ autoCmp ? "ON" : "OFF" }}</span>
+            <div
+              style="float: left; cursor: pointer"
+              :style="{ lineHeight: barHeight + 'px' }"
+              @click="test"
+            >
+              <i class="el-icon-s-tools" style="font-size: 18px"></i>
+            </div>
+            <div style="float: right">
+              {{ "COMPLIER : " }}
+              <span style="font-weight: bold">{{
+                mode === "c_cpp" ? "C++ (GCC 9.2.0)" : "Python (3.8.1)"
+              }}</span>
+              <el-divider direction="vertical"></el-divider>
+              {{ "AUTOCOMPLETE : " }}
+              <span style="font-weight: bold">{{
+                autoCmp ? "ON" : "OFF"
+              }}</span>
+            </div>
           </div>
         </VueAceEditor>
       </el-col>
@@ -226,7 +237,9 @@ export default {
       barClass: "textmate",
       barHeight: 32,
       options: {
-        enableLiveAutocompletion: false,
+        enableBasicAutocompletion: false, //启用基本自动完成功能
+        enableLiveAutocompletion: true, //启用实时自动完成功能 （比如：智能代码提示）
+        enableSnippets: false, //启用代码段
         printMargin: false,
         tabSize: 4,
       },
@@ -250,8 +263,11 @@ export default {
     },
     ace_editorInit(editor) {
       require("brace/ext/language_tools");
+      require("brace/ext/searchbox");
       require("brace/mode/c_cpp");
       require("brace/mode/python");
+      require("brace/ext/beautify");
+
       // 导入主题
       const requireAll = require.context("brace/theme", false, /\.js$/);
       requireAll.keys().forEach((item) => {
@@ -263,6 +279,10 @@ export default {
       this.loadConf();
       this.editor = editor;
       editor.focus();
+    },
+    test() {
+      this.editor.gotoLine(0, 0);
+      this.editor.focus();
     },
     getKeywords() {
       // 补全，文件从远程拉取
@@ -341,6 +361,7 @@ export default {
         // 得到拖拽过来的文件
         var dataFile = e.dataTransfer.files[0];
         // FileReader实例化
+        if (dataFile == undefined) return;
         var fr = new FileReader();
         // 读取完毕之后执行
         fr.onload = () => {
@@ -464,19 +485,25 @@ export default {
       window.addEventListener(
         "keydown",
         function (e) {
-          if (e.keyCode == 13 && e.altKey) {
+          if (e.keyCode == 13 && e.ctrlKey) { // ctrl + enter 打开侧栏
             e.preventDefault();
             if (_this.openDebugFlag) {
               if (!_this.ondebug) _this.debug();
             } else _this.span_editor = 40 - _this.span_editor;
           }
-          if (e.keyCode == 27) {
+          if (e.keyCode == 27) { // 关闭侧栏
             e.preventDefault();
             if (_this.openDebugFlag) _this.span_editor = 40 - _this.span_editor;
           }
-          if ((e.key == "s" || e.key == "S") && e.altKey) {
+          if ((e.key == "s" || e.key == "S") && e.altKey) { // alt + s 保存
             e.preventDefault();
             if (_this.editor.getValue().length > 0) _this.save();
+          }
+          if (e.keyCode == 13 && e.altKey) { // atl + enter 新增一行并定位
+            e.preventDefault();
+            let newRow = _this.editor.selection.getCursor().row;
+            _this.editor.session.insert({ row: newRow, col: 0 }, "\n");
+            _this.editor.gotoLine(newRow + 2);
           }
         },
         false
@@ -536,9 +563,8 @@ export default {
   padding-left: 10px;
 }
 .bar {
-  padding-right: 10px;
+  padding: 0 10px;
   font-size: 10px;
-  text-align: right;
   border-bottom: 1px solid lightgray;
   box-shadow: 5px 0 10px -5px lightgrey;
 }
