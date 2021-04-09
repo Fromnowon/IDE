@@ -17,6 +17,18 @@
           :theme="theme"
           @init="ace_editorInit"
         >
+          <div
+            :class="barClass + ' bar'"
+            :style="{ height: barHeight + 'px', lineHeight: barHeight + 'px' }"
+          >
+            {{ "COMPLIER : " }}
+            <span style="font-weight: bold">{{
+              mode === "c_cpp" ? "C++ (GCC 9.2.0)" : "Python (3.8.1)"
+            }}</span>
+            <el-divider direction="vertical"></el-divider>
+            {{ "AUTOCOMPLETE : " }}
+            <span style="font-weight: bold">{{ autoCmp ? "ON" : "OFF" }}</span>
+          </div>
         </VueAceEditor>
       </el-col>
       <el-col
@@ -25,7 +37,7 @@
         :style="{ height: height + 'px' }"
       >
         <div v-show="span_editor != 24" class="debug">
-          <el-collapse v-model="activeNames" style="margin-top: 30px">
+          <el-collapse v-model="activeNames" style="margin-top: 50px">
             <el-collapse-item name="1">
               <template slot="title">
                 <div style="font-size: 16px; font-weight: bold">
@@ -143,6 +155,7 @@
               :loading="ondebug"
               >运 行</el-button
             >
+            <p>输入</p>
             <el-input
               :disabled="ondebug"
               type="textarea"
@@ -153,15 +166,21 @@
               style="width: 100%; margin-bottom: 20px"
             >
             </el-input>
-            <el-input
-              :disabled="ondebug"
-              type="textarea"
-              placeholder="stdout"
-              v-model="stdout"
-              :autosize="{ minRows: 4, maxRows: 20 }"
-              style="width: 100%; margin-bottom: 50px"
-            >
-            </el-input>
+            <div v-if="stdout">
+              <p>输出</p>
+              <VueStaticHighlight
+                theme="textmate"
+                :content="stdout"
+                :lang="mode"
+                height="320px"
+                style="overflow: auto"
+                :gutter="false"
+                width="100%"
+              />
+            </div>
+            <p v-else style="color: gray; font-size: 14px">
+              Tip : 运行代码以获取输出
+            </p>
             <div style="text-align: right">
               <span style="font-size: 10pt">Develop by Zihang : </span>
               <el-button type="text" @click="go()">Github</el-button>
@@ -176,12 +195,13 @@
 <script>
 import axios from "axios";
 import moment, { fn } from "moment";
-import { VueAceEditor } from "vue2x-ace-editor";
+import { VueAceEditor, VueStaticHighlight } from "vue2x-ace-editor";
 
 export default {
   name: "Main",
   components: {
     VueAceEditor,
+    VueStaticHighlight,
   },
   data() {
     return {
@@ -193,7 +213,7 @@ export default {
       code: "",
       span_editor: 24,
       stdin: "",
-      stdout: "",
+      stdout: null,
       token: "",
       mode: "c_cpp",
       server: "",
@@ -203,10 +223,11 @@ export default {
       autoCmp: false,
       tip: null,
       activeNames: ["2"],
+      barClass: "textmate",
+      barHeight: 32,
       options: {
-        enableSnippets: true,
-        enableBasicAutocompletion: true,
         enableLiveAutocompletion: false,
+        printMargin: false,
         tabSize: 4,
       },
     };
@@ -214,7 +235,6 @@ export default {
   mounted() {
     this.init();
   },
-
   methods: {
     init() {
       this.bindKey();
@@ -230,9 +250,7 @@ export default {
     },
     ace_editorInit(editor) {
       require("brace/ext/language_tools");
-      require(`brace/snippets/c_cpp`);
       require("brace/mode/c_cpp");
-      require(`brace/snippets/python`);
       require("brace/mode/python");
       // 导入主题
       const requireAll = require.context("brace/theme", false, /\.js$/);
@@ -248,15 +266,16 @@ export default {
     },
     getKeywords() {
       // 补全，文件从远程拉取
-      axios.get("http://106.52.130.81/lib/keywords.json").then((res) => {
-        let keywords = res.data,
-          key_arr = [];
-        console.log(keywords);
-        keywords.forEach((item) => {
-          key_arr.push(item);
+      axios
+        .get("http://106.52.130.81/lib/keywords.json?" + Date.now())
+        .then((res) => {
+          let keywords = res.data,
+            key_arr = [];
+          keywords.forEach((item) => {
+            key_arr.push(item);
+          });
+          this.$refs.ace_editor.setCompleteData(key_arr);
         });
-        this.$refs.ace_editor.setCompleteData(key_arr);
-      });
     },
     loadConf() {
       // 读取信息
@@ -339,14 +358,12 @@ export default {
       localStorage.setItem("ace_code", code); // 保存代码
     },
     save() {
-      let Base64 = require("js-base64").Base64;
       this.saveCode();
       localStorage.setItem("ace_theme", this.theme); // 保存主题
       localStorage.setItem("ace_fontsize", this.fontsize); // 保存字号
       localStorage.setItem("ace_auto", this.autoCmp); // 保存补全
       localStorage.setItem("ace_lang", this.mode); // 保存语言
       localStorage.setItem("ace_server", this.server); // 保存语言
-
       console.log("saved");
     },
     go() {
@@ -373,7 +390,7 @@ export default {
 
       const _this = this;
       _this.ondebug = true;
-      _this.stdout = "";
+      _this.stdout = null;
 
       axios
         .post(
@@ -385,7 +402,7 @@ export default {
             language_id: _this.mode == "c_cpp" ? 54 : 71,
             stdin: Base64.encode(_this.stdin),
           },
-          { timeout: 3000 }
+          { timeout: 5000 }
         )
         .then((response) => {
           _this.token = response.data.token;
@@ -414,6 +431,7 @@ export default {
               "?base64_encoded=true"
           )
           .then((response) => {
+            if (_this.stdout) return; // 若已有结果，不再接受返回
             let e = response.data;
             if (e.status.id != 1 && e.status.id != 2) {
               clearInterval(loop);
@@ -429,10 +447,9 @@ export default {
                 });
                 if (e.status.id == 6)
                   _this.stdout = Base64.decode(e.compile_output);
-                else if (e.status.id == 11)
+                else if (e.status.id == 11 || e.status.id == 5)
                   // runtime error
-                  _this.stdout =
-                    e.status.description + "\n" + Base64.decode(e.stderr);
+                  _this.stdout = e.status.description;
                 else _this.stdout = Base64.decode(e.stderr);
               }
             }
@@ -440,7 +457,7 @@ export default {
       }, 1000);
     },
     resize() {
-      this.height = document.documentElement.clientHeight;
+      this.height = document.documentElement.clientHeight - this.barHeight;
     },
     bindKey() {
       const _this = this;
@@ -449,8 +466,9 @@ export default {
         function (e) {
           if (e.keyCode == 13 && e.altKey) {
             e.preventDefault();
-            if (_this.openDebugFlag) _this.debug();
-            else _this.span_editor = 40 - _this.span_editor;
+            if (_this.openDebugFlag) {
+              if (!_this.ondebug) _this.debug();
+            } else _this.span_editor = 40 - _this.span_editor;
           }
           if (e.keyCode == 27) {
             e.preventDefault();
@@ -466,6 +484,9 @@ export default {
     },
   },
   watch: {
+    theme(v) {
+      this.barClass = "ace-" + v.split("_").join("-");
+    },
     span_editor(v) {
       this.openDebugFlag = !this.openDebugFlag;
       if (v == 24) {
@@ -497,7 +518,7 @@ export default {
 .btn {
   z-index: 9;
   position: absolute;
-  top: 10px;
+  top: 30px;
   right: 20px;
   color: rgba(0, 0, 0, 0.3);
   font-size: 20pt;
@@ -507,11 +528,21 @@ export default {
   color: #409eff;
   transition: color 0.5s;
 }
-.editor_div {
-  box-shadow: 0px 0px 10px lightgrey;
+.ace_editor {
+  box-shadow: 5px 0 10px -5px lightgrey;
 }
 .debug_div {
   overflow: auto;
   padding-left: 10px;
+}
+.bar {
+  padding-right: 10px;
+  font-size: 10px;
+  text-align: right;
+  border-bottom: 1px solid lightgray;
+  box-shadow: 5px 0 10px -5px lightgrey;
+}
+.ace_static_highlight {
+  font-size: 14px !important;
 }
 </style>
