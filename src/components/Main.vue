@@ -1,205 +1,204 @@
 <template>
   <div class="main">
-    <div class="btn" @click="openDebug">
-      <i v-if="openDebugFlag" class="el-icon-close"></i>
-      <i v-else class="el-icon-position"></i>
-    </div>
-    <el-row :span="24">
-      <el-col :span="span_editor" class="editor_div">
-        <VueAceEditor
-          width="100%"
-          :height="height"
-          ref="ace_editor"
-          :content="code"
-          :options="options"
-          :fontSize="fontsize"
-          :lang="mode"
-          :theme="theme"
-          @init="ace_editorInit"
+    <el-container>
+      <el-header
+        :class="themeClass"
+        :height="barHeight + 'px'"
+        style="border-bottom: 1px solid rgba(144, 147, 153, 0.3)"
+      >
+        <div
+          class="bar"
+          :style="{ height: barHeight + 'px', lineHeight: barHeight + 'px' }"
         >
           <div
-            :class="barClass + ' bar'"
-            :style="{ height: barHeight + 'px', lineHeight: barHeight + 'px' }"
+            class="btn_settings btn"
+            @click="settingsDialogVisible = !settingsDialogVisible"
           >
-            <div
-              style="float: left; cursor: pointer"
-              :style="{ lineHeight: barHeight + 'px' }"
-              @click="test"
-            >
-              <i class="el-icon-s-tools" style="font-size: 18px"></i>
-            </div>
-            <div style="float: right">
-              {{ "COMPLIER : " }}
-              <span style="font-weight: bold">{{
-                mode === "c_cpp" ? "C++ (GCC 9.2.0)" : "Python (3.8.1)"
-              }}</span>
-              <el-divider direction="vertical"></el-divider>
-              {{ "AUTOCOMPLETE : " }}
-              <span style="font-weight: bold">{{
-                autoCmp ? "ON" : "OFF"
-              }}</span>
-            </div>
+            <i class="el-icon-setting"></i>
           </div>
-        </VueAceEditor>
-      </el-col>
-      <el-col
-        :span="24 - span_editor"
-        class="debug_div"
-        :style="{ height: height + 'px' }"
-      >
-        <div v-show="span_editor != 24" class="debug">
-          <el-collapse v-model="activeNames" style="margin-top: 50px">
-            <el-collapse-item name="1">
-              <template slot="title">
-                <div style="font-size: 16px; font-weight: bold">
-                  <span>设置 </span>
-                </div>
-              </template>
-              <h4>文件</h4>
-              <div style="padding: 0 10px">
-                <el-button
-                  type="primary"
-                  plain
-                  size="small"
-                  @click="read"
-                  style="margin-right: 10px"
-                  ><i class="el-icon-folder-opened" /> 打 开</el-button
-                >
-                <input
-                  ref="readInput"
-                  type="file"
-                  accept=".cpp, .py"
-                  @change="loadFile"
-                  style="display: none"
-                />
-                <el-button
-                  type="success"
-                  plain
-                  size="small"
-                  @click="saveToLocal()"
-                  ><i class="el-icon-document-checked"></i> 另存为</el-button
-                >
-              </div>
-              <h4>选项</h4>
-              <div style="padding: 0 10px">
-                <el-row :span="24">
-                  <el-col :span="12"
-                    ><p>语言</p>
-                    <el-select
-                      v-model="mode"
-                      size="small"
-                      style="max-width: 120pt"
-                    >
-                      <el-option
-                        :key="0"
-                        :label="'C++ (GCC 9.2.0)'"
-                        :value="'c_cpp'"
-                      >
-                      </el-option>
-                      <el-option
-                        :key="1"
-                        :label="'Python (3.8.1)'"
-                        :value="'python'"
-                      >
-                      </el-option> </el-select
-                  ></el-col>
-                  <el-col :span="12" style="padding-left: 10px">
-                    <p>
-                      服务器IP<i
-                        style="
-                          margin-left: 10px;
-                          cursor: pointer;
-                          color: #e6a23c;
-                        "
-                        @click="server = default_server"
-                        title="重置"
-                        class="el-icon-refresh-left"
-                      />
-                    </p>
-                    <el-input
-                      ref="server"
-                      placeholder="请输入内容"
-                      v-model="server"
-                      size="small"
-                    >
-                    </el-input>
-                  </el-col>
-                </el-row>
-                <el-row :span="24">
-                  <el-col :span="12"
-                    ><p>主题</p>
-                    <el-select
-                      v-model="theme"
-                      size="small"
-                      style="max-width: 120pt"
-                    >
-                      <el-option
-                        v-for="(item, index) in themeList"
-                        :key="index"
-                        :label="item"
-                        :value="item"
-                      >
-                      </el-option> </el-select
-                  ></el-col>
-                  <el-col :span="12" style="padding-left: 10px"
-                    ><p>提示</p>
-                    <el-switch
-                      v-model="autoCmp"
-                      active-color="#13ce66"
-                      inactive-color="#C0C4CC"
-                    >
-                    </el-switch
-                  ></el-col>
-                </el-row>
-                <p>字号</p>
-                <el-slider v-model="fontsize" :min="10" :max="30"></el-slider>
-              </div>
-            </el-collapse-item>
-          </el-collapse>
-
-          <h4>调试</h4>
-          <div style="padding: 0 10px">
-            <el-button
-              type="primary"
-              style="width: 100%; margin-bottom: 20px"
-              @click="debug"
-              :loading="ondebug"
-              >运 行</el-button
+          <div
+            class="btn_settings btn"
+            @click="helpDialogVisible = !helpDialogVisible"
+          >
+            <i class="el-icon-warning-outline"></i>
+          </div>
+          <div class="btn_settings btn" @click="saveToLocal">
+            <i class="el-icon-document-checked"></i>
+          </div>
+          <div class="btn_settings btn" @click="read">
+            <i class="el-icon-folder-opened"></i>
+          </div>
+          <div class="btn_settings btn run" @click="debug">
+            <i v-if="ondebug" class="el-icon-loading"></i>
+            <i v-else class="el-icon-caret-right"></i>
+          </div>
+          <div style="float: left">
+            {{ "COMPLIER : " }}
+            <span style="font-weight: bold">{{
+              mode === "c_cpp" ? "C++ (GCC 9.2.0)" : "Python (3.8.1)"
+            }}</span>
+            <el-divider direction="vertical"></el-divider>
+            {{ "AUTOCOMPLETE : " }}
+            <span style="font-weight: bold">{{ autoCmp ? "ON" : "OFF" }}</span>
+          </div>
+        </div>
+      </el-header>
+      <el-container>
+        <el-main>
+          <div class="editor_div">
+            <VueAceEditor
+              width="100%"
+              :height="height"
+              ref="ace_editor"
+              :content="code"
+              :options="options"
+              :fontSize="fontsize"
+              :lang="mode"
+              :theme="theme"
+              @init="ace_editorInit"
             >
-            <p>输入</p>
-            <el-input
-              :disabled="ondebug"
-              type="textarea"
-              ref="stdin"
-              :autosize="{ minRows: 3, maxRows: 10 }"
-              placeholder="stdin"
-              v-model="stdin"
-              style="width: 100%; margin-bottom: 20px"
+            </VueAceEditor>
+          </div>
+        </el-main>
+        <el-aside
+          :width="debug_width + 'px'"
+          :class="themeClass"
+          :style="{ width: debug_width + 'px' }"
+        >
+          <el-container>
+            <el-header
+              style="border-bottom: 1px solid rgba(144, 147, 153, 0.3)"
+              :height="debug_input_height + barHeight + 'px'"
             >
-            </el-input>
-            <div v-if="stdout">
-              <p>输出</p>
+              <VueAceEditor
+                width="100%"
+                height="100%"
+                ref="stdin"
+                :options="{
+                  showLineNumbers: false,
+                  showGutter: false,
+                  printMargin: false,
+                  tabSize: 4,
+                }"
+                :fontSize="14"
+                :lang="mode"
+                :theme="theme"
+              >
+              </VueAceEditor>
+            </el-header>
+            <el-main style="padding: 10px">
               <VueStaticHighlight
-                theme="textmate"
+                v-if="stdout"
+                :theme="theme"
                 :content="stdout"
                 :lang="mode"
-                height="320px"
+                :height="height - barHeight - debug_input_height"
                 style="overflow: auto"
                 :gutter="false"
                 width="100%"
               />
-            </div>
-            <p v-else style="color: gray; font-size: 14px">
-              Tip : 运行代码以获取输出
+            </el-main>
+          </el-container>
+        </el-aside>
+      </el-container>
+    </el-container>
+    <el-dialog
+      title="设置"
+      :visible.sync="settingsDialogVisible"
+      :modal="false"
+      custom-class="settingsDialog"
+      width="40%"
+    >
+      <div style="padding: 0 10px">
+        <el-row :span="24">
+          <el-col :span="12"
+            ><p>语言</p>
+            <el-select v-model="mode" size="small" style="max-width: 120pt">
+              <el-option :key="0" :label="'C++ (GCC 9.2.0)'" :value="'c_cpp'">
+              </el-option>
+              <el-option :key="1" :label="'Python (3.8.1)'" :value="'python'">
+              </el-option> </el-select
+          ></el-col>
+          <el-col :span="12" style="padding-left: 10px">
+            <p>
+              服务器IP<i
+                style="margin-left: 10px; cursor: pointer; color: #e6a23c"
+                @click="server = default_server"
+                title="重置"
+                class="el-icon-refresh-left"
+              />
             </p>
-            <div style="text-align: right">
-              <span style="font-size: 10pt">Develop by Zihang : </span>
-              <el-button type="text" @click="go()">Github</el-button>
-            </div>
-          </div>
-        </div>
-      </el-col>
-    </el-row>
+            <el-input
+              ref="server"
+              placeholder="请输入内容"
+              v-model="server"
+              size="small"
+            >
+            </el-input>
+          </el-col>
+        </el-row>
+        <el-row :span="24">
+          <el-col :span="12"
+            ><p>主题</p>
+            <el-select v-model="theme" size="small" style="max-width: 120pt">
+              <el-option
+                v-for="(item, index) in themeList"
+                :key="index"
+                :label="item"
+                :value="item"
+              >
+              </el-option> </el-select
+          ></el-col>
+          <el-col :span="12" style="padding-left: 10px"
+            ><p>提示</p>
+            <el-switch
+              v-model="autoCmp"
+              active-color="#13ce66"
+              inactive-color="#C0C4CC"
+            >
+            </el-switch
+          ></el-col>
+        </el-row>
+        <p>字号</p>
+        <el-slider v-model="fontsize" :min="10" :max="30"></el-slider>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="settingsDialogVisible = false">关 闭</el-button>
+      </span>
+    </el-dialog>
+    <el-dialog title="提示" :visible.sync="helpDialogVisible" width="40%">
+      <h4>关于</h4>
+      <p>编辑器目前支持C++、Python，后续会添加更多语言</p>
+      <p>
+        开源：<el-link type="primary" @click="go"
+          >https://github.com/Fromnowon/IDE</el-link
+        >
+      </p>
+      <h4>快捷键</h4>
+      <p><span style="color: #409eff">F9</span> - 运行代码</p>
+      <p><span style="color: #409eff">Ctrl + Enter</span> - 下方插入一行</p>
+      <p>
+        <span style="color: #409eff">Ctrl + Alt + Enter</span> - 上方插入一行
+      </p>
+    </el-dialog>
+    <input
+      ref="readInput"
+      type="file"
+      accept=".cpp, .py"
+      @change="loadFile"
+      style="display: none"
+    />
+    <div
+      class="resize_debug"
+      @click="debug_width = 400 - debug_width"
+      :style="{
+        top: debug_input_height + barHeight + 20 + 'px',
+        right: debug_width + 3 + 'px',
+      }"
+    >
+      <i v-if="debug_width" class="el-icon-d-arrow-right"></i>
+      <i v-else class="el-icon-d-arrow-left"></i>
+    </div>
   </div>
 </template>
 
@@ -222,7 +221,6 @@ export default {
       theme: "textmate",
       themeList: [],
       code: "",
-      span_editor: 24,
       stdin: "",
       stdout: null,
       token: "",
@@ -230,17 +228,20 @@ export default {
       server: "",
       default_server: "106.52.130.81:2358",
       ondebug: false,
-      openDebugFlag: false,
       autoCmp: false,
       tip: null,
-      activeNames: ["2"],
-      barClass: "textmate",
+      themeClass: "textmate",
       barHeight: 32,
+      settingsDialogVisible: false,
+      helpDialogVisible: false,
+      debug_width: 400,
+      debug_input_height: 400,
       options: {
         enableBasicAutocompletion: false, //启用基本自动完成功能
         enableLiveAutocompletion: true, //启用实时自动完成功能 （比如：智能代码提示）
         enableSnippets: false, //启用代码段
         printMargin: false,
+        vScrollBarAlwaysVisible: true,
         tabSize: 4,
       },
     };
@@ -250,6 +251,10 @@ export default {
   },
   methods: {
     init() {
+      if (/windows phone|iphone|android/gi.test(window.navigator.userAgent)) {
+        //h5
+        alert("编辑器布局未适配移动端，请谨慎使用")
+      }
       this.bindKey();
       this.dragLoadFileInit();
       this.resize();
@@ -279,10 +284,6 @@ export default {
       this.loadConf();
       this.editor = editor;
       editor.focus();
-    },
-    test() {
-      this.editor.gotoLine(0, 0);
-      this.editor.focus();
     },
     getKeywords() {
       // 补全，文件从远程拉取
@@ -390,14 +391,13 @@ export default {
     go() {
       window.open("https://github.com/Fromnowon/IDE");
     },
-    openDebug() {
-      this.span_editor = 40 - this.span_editor;
-    },
     debug() {
       if (this.editor.getValue().trim().length == 0) {
         this.$message.error("代码不能为空");
         return;
       }
+      if (this.ondebug) return;
+      if (!this.debug_width) this.debug_width = 400;
 
       this.tip = this.$message({
         dangerouslyUseHTMLString: true,
@@ -412,6 +412,7 @@ export default {
       const _this = this;
       _this.ondebug = true;
       _this.stdout = null;
+      _this.stdin = _this.$refs.stdin.getValue();
 
       axios
         .post(
@@ -485,25 +486,44 @@ export default {
       window.addEventListener(
         "keydown",
         function (e) {
-          if (e.keyCode == 13 && e.ctrlKey) { // ctrl + enter 打开侧栏
+          if (e.keyCode == 120) {
+            //调试
             e.preventDefault();
-            if (_this.openDebugFlag) {
-              if (!_this.ondebug) _this.debug();
-            } else _this.span_editor = 40 - _this.span_editor;
+            _this.debug();
           }
-          if (e.keyCode == 27) { // 关闭侧栏
-            e.preventDefault();
-            if (_this.openDebugFlag) _this.span_editor = 40 - _this.span_editor;
-          }
-          if ((e.key == "s" || e.key == "S") && e.altKey) { // alt + s 保存
+          if ((e.key == "s" || e.key == "S") && e.altKey) {
+            // alt + s 保存
             e.preventDefault();
             if (_this.editor.getValue().length > 0) _this.save();
           }
-          if (e.keyCode == 13 && e.altKey) { // atl + enter 新增一行并定位
+          if (e.keyCode == 13 && e.altKey && e.ctrlKey) {
+            // atl + ctrl + enter上方新增一行
             e.preventDefault();
-            let newRow = _this.editor.selection.getCursor().row;
-            _this.editor.session.insert({ row: newRow, col: 0 }, "\n");
-            _this.editor.gotoLine(newRow + 2);
+            let nowRow = _this.editor.selection.getCursor().row; // 获取当前行号，从0开始
+            let nowRowContent = _this.editor.session.getLine(nowRow); // 获取当前行内容
+            let spaceCounter = 0;
+            while (nowRowContent[spaceCounter] == " ") spaceCounter++; // 获取空格数
+            _this.editor.gotoLine(nowRow); // 定位到指定行，从1开始
+            _this.editor.session.insert({ row: nowRow - 1, col: 0 }, "\n");
+            _this.editor.gotoLine(nowRow + 1);
+            _this.editor.session.insert(
+              { row: nowRow, col: 0 },
+              nowRowContent.slice(0, spaceCounter)
+            ); // 同步插入行与当前行的缩进
+          }
+          if (e.keyCode == 13 && e.ctrlKey && !e.altKey) {
+            // atl + enter 下方新增一行
+            e.preventDefault();
+            let nowRow = _this.editor.selection.getCursor().row;
+            let nowRowContent = _this.editor.session.getLine(nowRow); // 获取当前行内容
+            let spaceCounter = 0;
+            while (nowRowContent[spaceCounter] == " ") spaceCounter++; // 获取空格数
+            _this.editor.session.insert({ row: nowRow, col: 0 }, "\n");
+            _this.editor.gotoLine(nowRow + 2);
+            _this.editor.session.insert(
+              { row: nowRow + 1, col: 0 },
+              nowRowContent.slice(0, spaceCounter)
+            ); // 同步插入行与当前行的缩进
           }
         },
         false
@@ -512,17 +532,7 @@ export default {
   },
   watch: {
     theme(v) {
-      this.barClass = "ace-" + v.split("_").join("-");
-    },
-    span_editor(v) {
-      this.openDebugFlag = !this.openDebugFlag;
-      if (v == 24) {
-        this.editor.focus();
-      } else {
-        this.$nextTick(function () {
-          this.$refs.stdin.focus();
-        });
-      }
+      this.themeClass = "ace-" + v.split("_").join("-");
     },
     autoCmp(v) {
       this.editor.setOptions({
@@ -542,33 +552,76 @@ export default {
 .debug {
   padding: 20px;
 }
-.btn {
-  z-index: 9;
-  position: absolute;
-  top: 30px;
-  right: 20px;
-  color: rgba(0, 0, 0, 0.3);
-  font-size: 20pt;
-}
-.btn:hover {
-  cursor: pointer;
-  color: #409eff;
-  transition: color 0.5s;
-}
-.ace_editor {
-  box-shadow: 5px 0 10px -5px lightgrey;
-}
-.debug_div {
-  overflow: auto;
-  padding-left: 10px;
-}
 .bar {
-  padding: 0 10px;
+  padding: 0 0 0 10px;
   font-size: 10px;
-  border-bottom: 1px solid lightgray;
-  box-shadow: 5px 0 10px -5px lightgrey;
 }
 .ace_static_highlight {
+  overflow: auto;
   font-size: 14px !important;
+}
+.btn {
+  font-size: 18px;
+  cursor: pointer;
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+  transition: all 0.5s;
+}
+.btn:hover {
+  background: rgba(0, 0, 0, 0.205);
+}
+.btn_settings {
+  height: 32px;
+  line-height: 32px;
+  width: 60px;
+  float: right;
+  text-align: center;
+}
+.run {
+  background: #67c23a;
+  width: 80px;
+  color: white;
+  border: none;
+}
+.run:hover {
+  background: #489223;
+}
+.settingsDialog {
+  box-shadow: 0 3px 15px rgb(0 0 0 / 20%);
+}
+.el-header {
+  padding: 0 !important;
+}
+.el-main {
+  padding: 0 !important;
+}
+.resize_debug {
+  cursor: pointer;
+  position: absolute;
+  color: rgba(155, 155, 155, 0.5);
+  z-index: 999;
+}
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 6px;
+}
+/* 滑轨 */
+::-webkit-scrollbar-track {
+  -webkit-box-shadow: inset 0 0 3px rgba(155, 155, 155, 0.3);
+  -webkit-border-radius: 3px;
+  border-radius: 3px;
+}
+/* Handle */
+::-webkit-scrollbar-thumb {
+  -webkit-border-radius: 3px;
+  border-radius: 3px;
+  background: rgba(144, 147, 153, 0.3);
+}
+::-webkit-scrollbar-thumb:window-inactive {
+  background: rgba(144, 147, 153, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #777;
 }
 </style>
