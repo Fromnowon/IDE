@@ -105,7 +105,6 @@
     <el-dialog
       title="设置"
       :visible.sync="settingsDialogVisible"
-      :modal="false"
       custom-class="settingsDialog"
       width="40%"
     >
@@ -176,9 +175,16 @@
       </p>
       <h4>快捷键</h4>
       <p><span style="color: #409eff">F9</span> - 运行代码</p>
+      <p><span style="color: #409eff">Ctrl + F</span> - 查找，替换</p>
       <p><span style="color: #409eff">Ctrl + Enter</span> - 下方插入一行</p>
       <p>
         <span style="color: #409eff">Ctrl + Alt + Enter</span> - 上方插入一行
+      </p>
+      <p>
+        <span style="color: #409eff">Shift + Alt + F</span> - 格式化代码<span
+          style="color: red"
+          >（测试功能，慎用）</span
+        >
       </p>
     </el-dialog>
     <input
@@ -206,6 +212,7 @@
 import axios from "axios";
 import moment, { fn } from "moment";
 import { VueAceEditor, VueStaticHighlight } from "vue2x-ace-editor";
+import { js_beautify } from "js-beautify";
 
 export default {
   name: "Main",
@@ -253,7 +260,7 @@ export default {
     init() {
       if (/windows phone|iphone|android/gi.test(window.navigator.userAgent)) {
         //h5
-        alert("编辑器布局未适配移动端，请谨慎使用")
+        alert("编辑器布局未适配移动端，请谨慎使用");
       }
       this.bindKey();
       this.dragLoadFileInit();
@@ -271,7 +278,6 @@ export default {
       require("brace/ext/searchbox");
       require("brace/mode/c_cpp");
       require("brace/mode/python");
-      require("brace/ext/beautify");
 
       // 导入主题
       const requireAll = require.context("brace/theme", false, /\.js$/);
@@ -496,6 +502,19 @@ export default {
             e.preventDefault();
             if (_this.editor.getValue().length > 0) _this.save();
           }
+          if (e.keyCode == 70 && e.altKey && e.shiftKey) {
+            // 格式化代码
+            e.preventDefault();
+            let pos = _this.editor.selection.getCursor();
+            _this.editor.setValue(
+              js_beautify(_this.editor.getValue(), {
+                indent_size: 4,
+                brace_style: "preserve-inline",
+                space_before_conditional: true,
+              }),
+              1
+            );
+          }
           if (e.keyCode == 13 && e.altKey && e.ctrlKey) {
             // atl + ctrl + enter上方新增一行
             e.preventDefault();
@@ -512,7 +531,7 @@ export default {
             ); // 同步插入行与当前行的缩进
           }
           if (e.keyCode == 13 && e.ctrlKey && !e.altKey) {
-            // atl + enter 下方新增一行
+            // ctrl + enter 下方新增一行
             e.preventDefault();
             let nowRow = _this.editor.selection.getCursor().row;
             let nowRowContent = _this.editor.session.getLine(nowRow); // 获取当前行内容
@@ -559,6 +578,7 @@ export default {
 .ace_static_highlight {
   overflow: auto;
   font-size: 14px !important;
+  padding: 10px;
 }
 .btn {
   font-size: 18px;
@@ -599,6 +619,10 @@ export default {
   position: absolute;
   color: rgba(155, 155, 155, 0.5);
   z-index: 999;
+}
+.ace-tm {
+  background-color: unset !important;
+  color: unset !important;
 }
 /* 滚动条样式 */
 ::-webkit-scrollbar {
