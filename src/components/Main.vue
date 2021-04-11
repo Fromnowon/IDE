@@ -10,28 +10,64 @@
           class="bar"
           :style="{ height: barHeight + 'px', lineHeight: barHeight + 'px' }"
         >
-          <div
-            class="btn_settings btn"
-            @click="settingsDialogVisible = !settingsDialogVisible"
+          <el-tooltip
+            class="item"
+            effect="dark"
+            content="设置"
+            placement="bottom"
           >
-            <i class="el-icon-setting"></i>
-          </div>
-          <div
-            class="btn_settings btn"
-            @click="helpDialogVisible = !helpDialogVisible"
+            <div
+              class="btn_settings btn"
+              @click="settingsDialogVisible = !settingsDialogVisible"
+            >
+              <i class="el-icon-setting"></i>
+            </div>
+          </el-tooltip>
+          <el-tooltip
+            class="item"
+            effect="dark"
+            content="帮助信息"
+            placement="bottom"
           >
-            <i class="el-icon-warning-outline"></i>
-          </div>
-          <div class="btn_settings btn" @click="saveToLocal">
-            <i class="el-icon-document-checked"></i>
-          </div>
-          <div class="btn_settings btn" @click="read">
-            <i class="el-icon-folder-opened"></i>
-          </div>
-          <div class="btn_settings btn run" @click="debug">
-            <i v-if="ondebug" class="el-icon-loading"></i>
-            <i v-else class="el-icon-caret-right"></i>
-          </div>
+            <div
+              class="btn_settings btn"
+              @click="helpDialogVisible = !helpDialogVisible"
+            >
+              <i class="el-icon-warning-outline"></i>
+            </div>
+          </el-tooltip>
+          <el-tooltip
+            class="item"
+            effect="dark"
+            content="保存文文件到本地"
+            placement="bottom"
+          >
+            <div class="btn_settings btn" @click="saveToLocal">
+              <i class="el-icon-document-checked"></i>
+            </div>
+          </el-tooltip>
+          <el-tooltip
+            class="item"
+            effect="dark"
+            content="打开本地文件"
+            placement="bottom"
+          >
+            <div class="btn_settings btn" @click="read">
+              <i class="el-icon-folder-opened"></i>
+            </div>
+          </el-tooltip>
+          <el-tooltip
+            class="item"
+            effect="dark"
+            content="运行代码"
+            placement="bottom"
+          >
+            <div class="btn_settings btn run" @click="debug">
+              <i v-if="ondebug" class="el-icon-loading"></i>
+              <i v-else class="el-icon-caret-right"></i>
+            </div>
+          </el-tooltip>
+
           <div style="float: left">
             {{ "COMPLIER : " }}
             <span style="font-weight: bold">{{
@@ -50,12 +86,13 @@
               width="100%"
               :height="height"
               ref="ace_editor"
-              :content="code"
+              :content="code_"
               :options="options"
               :fontSize="fontsize"
               :lang="mode"
               :theme="theme"
               @init="ace_editorInit"
+              @onChange="codeChange"
             >
             </VueAceEditor>
           </div>
@@ -66,9 +103,19 @@
           :style="{ width: debug_width + 'px' }"
         >
           <el-container>
+            <div class="area_tip">
+              Stdin
+              <i
+                v-show="stdin"
+                style="margin-left: 10px; cursor: pointer; color: #e6a23c"
+                @click="clearStdin"
+                title="清空"
+                class="el-icon-delete"
+              />
+            </div>
             <el-header
               style="border-bottom: 1px solid rgba(144, 147, 153, 0.3)"
-              :height="debug_input_height + barHeight + 'px'"
+              :height="height - barHeight - debug_output_height + 'px'"
             >
               <VueAceEditor
                 width="100%"
@@ -83,19 +130,27 @@
                 :fontSize="14"
                 :lang="mode"
                 :theme="theme"
+                @onChange="stdinChange"
               >
               </VueAceEditor>
             </el-header>
-            <el-main style="padding: 10px">
+            <div class="area_tip">
+              Stdout<i
+                v-show="stdout"
+                style="margin-left: 10px; cursor: pointer; color: #e6a23c"
+                @click="stdout = ''"
+                title="清空"
+                class="el-icon-delete"
+              />
+            </div>
+            <el-main :style="{ height: debug_output_height - 20 + 'px' }">
               <VueStaticHighlight
                 v-if="stdout"
                 :theme="theme"
                 :content="stdout"
                 :lang="mode"
-                :height="height - barHeight - debug_input_height"
+                :height="debug_output_height + 'px' - 5"
                 style="overflow: auto"
-                :gutter="false"
-                width="100%"
               />
             </el-main>
           </el-container>
@@ -196,10 +251,9 @@
     />
     <div
       class="resize_debug"
-      @click="debug_width = 400 - debug_width"
       :style="{
-        top: debug_input_height + barHeight + 20 + 'px',
-        right: debug_width + 3 + 'px',
+        top: height - barHeight - debug_output_height + 2 * 24 + 'px',
+        left: width - debug_width - 21 + 'px',
       }"
     >
       <i v-if="debug_width" class="el-icon-d-arrow-right"></i>
@@ -223,11 +277,13 @@ export default {
   data() {
     return {
       editor: "",
-      height: 500,
+      width: null,
+      height: null,
       fontsize: 16,
       theme: "textmate",
       themeList: [],
       code: "",
+      code_: "",
       stdin: "",
       stdout: null,
       token: "",
@@ -242,13 +298,14 @@ export default {
       settingsDialogVisible: false,
       helpDialogVisible: false,
       debug_width: 400,
-      debug_input_height: 400,
+      debug_output_height: 600,
       options: {
         enableBasicAutocompletion: false, //启用基本自动完成功能
         enableLiveAutocompletion: true, //启用实时自动完成功能 （比如：智能代码提示）
         enableSnippets: false, //启用代码段
         printMargin: false,
         vScrollBarAlwaysVisible: true,
+        scrollPastEnd: 0.2,
         tabSize: 4,
       },
     };
@@ -260,7 +317,7 @@ export default {
     init() {
       if (/windows phone|iphone|android/gi.test(window.navigator.userAgent)) {
         //h5
-        alert("编辑器布局未适配移动端，请谨慎使用");
+        alert("IDE布局未适配移动端，请谨慎使用");
       }
       this.bindKey();
       this.dragLoadFileInit();
@@ -272,6 +329,7 @@ export default {
         this.save();
       };
       this.getKeywords();
+      this.initDrag();
     },
     ace_editorInit(editor) {
       require("brace/ext/language_tools");
@@ -291,6 +349,83 @@ export default {
       this.editor = editor;
       editor.focus();
     },
+    initDrag() {
+      const _this = this;
+      const obj = document.querySelector(".resize_debug");
+      obj.onmousedown = function (e) {
+        e.preventDefault();
+        var e = e || window.event; // 兼容 IE
+        // 鼠标点击物体那一刻相对于物体左侧边框的距离=点击时的位置相对于浏览器
+        // 最左边的距离-物体左边框相对于浏览器最左边的距离，纵向同理
+        var divX = e.clientX - this.offsetLeft;
+        var divY = e.clientY - this.offsetTop;
+
+        if (obj.setCapture) {
+          obj.setCapture(); // 修复低版本 IE bug
+        }
+        document.onmousemove = function (e) {
+          var e = e || window.event;
+
+          var disX = e.clientX - divX;
+          var disY = e.clientY - divY;
+
+          // 控制拖拽物体的范围只能在浏览器视窗内，不允许出现滚动条或拖出可视区域
+          if (disX < 0) {
+            disX = 0;
+          } else if (
+            disX >
+            document.documentElement.clientWidth - obj.offsetWidth
+          ) {
+            disX = document.documentElement.clientWidth - obj.offsetWidth;
+          }
+
+          if (disY < 0) {
+            disY = 0;
+          } else if (
+            disY >
+            document.documentElement.clientHeight - obj.offsetHeight
+          ) {
+            disY = document.documentElement.clientHeight - obj.offsetHeight;
+          }
+
+          // 移动时重新得到物体的距离，解决拖动时出现晃动现象
+          // obj.style.top = disY + "px";
+          //obj.style.left = disX + "px";
+          _this.debug_width =
+            _this.width - disX - divX - 15 > 1000
+              ? 1000
+              : _this.width - disX - divX - 15;
+          let n_height = _this.height - disY - divY + _this.barHeight - 5;
+          _this.debug_output_height =
+            n_height > _this.height * 0.8
+              ? _this.height * 0.8
+              : n_height < _this.height * 0.2
+              ? _this.height * 0.2
+              : n_height;
+
+          _this.editor.resize(); // 调整尺寸
+          _this.$refs.stdin.resize(); // 调整尺寸
+          document.onmouseup = function () {
+            if (_this.debug_width <= 100) _this.debug_width = 0;
+            // 鼠标抬起时不再移动
+            // 预防鼠标弹起来后还会循环（即预防鼠标放上去的时候还会移动）
+            document.onmousedown = document.onmousemove = null;
+            if (obj.releaseCapture) {
+              obj.releaseCapture(); // 修复低版本 IE bug
+            }
+          };
+        };
+      };
+    },
+    clearStdin() {
+      this.$refs.stdin.setValue("");
+    },
+    codeChange(editor) {
+      this.code = editor.getValue();
+    },
+    stdinChange(editor) {
+      this.stdin = editor.getValue();
+    },
     getKeywords() {
       // 补全，文件从远程拉取
       axios
@@ -308,7 +443,7 @@ export default {
       // 读取信息
       let Base64 = require("js-base64").Base64;
       let code = localStorage.getItem("ace_code");
-      if (code) this.code = Base64.decode(code);
+      if (code) this.code_ = Base64.decode(code);
       this.theme = localStorage.getItem("ace_theme") || "textmate";
       this.fontsize = parseInt(localStorage.getItem("ace_fontsize")) || 18;
       this.autoCmp = localStorage.getItem("ace_auto") == "true" ? true : false;
@@ -317,7 +452,7 @@ export default {
     },
     saveToLocal() {
       //定义文件内容，类型必须为Blob 否则createObjectURL会报错
-      let content = new Blob([this.editor.getValue()]);
+      let content = new Blob([this.code]);
       //生成url对象
       let urlObject = window.URL || window.webkitURL || window;
       let url = urlObject.createObjectURL(content);
@@ -382,7 +517,7 @@ export default {
     },
     saveCode() {
       let Base64 = require("js-base64").Base64;
-      let code = Base64.encode(this.editor.getValue());
+      let code = Base64.encode(this.code);
       localStorage.setItem("ace_code", code); // 保存代码
     },
     save() {
@@ -398,7 +533,7 @@ export default {
       window.open("https://github.com/Fromnowon/IDE");
     },
     debug() {
-      if (this.editor.getValue().trim().length == 0) {
+      if (this.code.trim().length == 0) {
         this.$message.error("代码不能为空");
         return;
       }
@@ -413,12 +548,12 @@ export default {
       });
 
       let Base64 = require("js-base64").Base64;
-      let code = Base64.encode(this.editor.getValue());
+      let code = Base64.encode(this.code);
 
       const _this = this;
       _this.ondebug = true;
       _this.stdout = null;
-      _this.stdin = _this.$refs.stdin.getValue();
+      _this.stdin = _this.stdin;
 
       axios
         .post(
@@ -486,6 +621,7 @@ export default {
     },
     resize() {
       this.height = document.documentElement.clientHeight - this.barHeight;
+      this.width = document.documentElement.clientWidth;
     },
     bindKey() {
       const _this = this;
@@ -568,6 +704,9 @@ export default {
   width: 100%;
   height: 100%;
 }
+.editor_div {
+  overflow: hidden;
+}
 .debug {
   padding: 20px;
 }
@@ -576,9 +715,7 @@ export default {
   font-size: 10px;
 }
 .ace_static_highlight {
-  overflow: auto;
   font-size: 14px !important;
-  padding: 10px;
 }
 .btn {
   font-size: 18px;
@@ -615,10 +752,16 @@ export default {
   padding: 0 !important;
 }
 .resize_debug {
-  cursor: pointer;
+  cursor: move;
   position: absolute;
   color: rgba(155, 155, 155, 0.5);
   z-index: 999;
+}
+.area_tip {
+  font-size: 14px;
+  line-height: 24px;
+  padding-left: 5px;
+  border-bottom: 1px solid rgba(144, 147, 153, 0.3);
 }
 .ace-tm {
   background-color: unset !important;
