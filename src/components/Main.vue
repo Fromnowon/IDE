@@ -221,7 +221,7 @@
       </span>
     </el-dialog>
     <el-dialog title="提示" :visible.sync="helpDialogVisible" width="40%">
-      <h4>关于</h4>
+      <span style="font-size: 16px; font-weight: bold">关于</span>
       <p>编辑器目前支持C++、Python，后续会添加更多语言</p>
       <p>
         开源：<el-link type="primary" @click="go"
@@ -765,8 +765,8 @@ export default {
 }
 /* 滚动条样式 */
 ::-webkit-scrollbar {
-  width: 3px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 /* 滑轨 */
 ::-webkit-scrollbar-track {
