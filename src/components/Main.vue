@@ -763,10 +763,6 @@ export default {
   padding-left: 5px;
   border-bottom: 1px solid rgba(144, 147, 153, 0.3);
 }
-.ace-tm {
-  background-color: unset !important;
-  color: unset !important;
-}
 /* 滚动条样式 */
 ::-webkit-scrollbar {
   width: 3px;
