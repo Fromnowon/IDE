@@ -82,7 +82,13 @@
       <el-container>
         <el-main>
           <div class="editor_div">
-            <VueAceEditor
+            <MonacoEditor
+              :style="{ height: height + 'px', width: '100%' }"
+              v-model="code"
+              language="cpp"
+              @editorDidMount="manocoHandler"
+            />
+            <!-- <VueAceEditor
               width="100%"
               :height="height"
               ref="ace_editor"
@@ -94,7 +100,7 @@
               @init="ace_editorInit"
               @onChange="codeChange"
             >
-            </VueAceEditor>
+            </VueAceEditor> -->
           </div>
         </el-main>
         <el-aside
@@ -130,6 +136,7 @@
                 :fontSize="14"
                 :lang="mode"
                 :theme="theme"
+                @init="ace_editorInit"
                 @onChange="stdinChange"
               >
               </VueAceEditor>
@@ -267,12 +274,14 @@ import axios from "axios";
 import moment, { fn } from "moment";
 import { VueAceEditor, VueStaticHighlight } from "vue2x-ace-editor";
 import { js_beautify } from "js-beautify";
+import MonacoEditor from "vue-monaco";
 
 export default {
   name: "Main",
   components: {
     VueAceEditor,
     VueStaticHighlight,
+    MonacoEditor,
   },
   data() {
     return {
@@ -282,7 +291,7 @@ export default {
       fontsize: 16,
       theme: "textmate",
       themeList: [],
-      code: "",
+      code: "const noop = () => {}",
       code_: "",
       stdin: "",
       stdout: null,
@@ -319,7 +328,7 @@ export default {
         //h5
         alert("IDE布局未适配移动端，请谨慎使用");
       }
-      this.bindKey();
+      // this.bindKey();
       this.dragLoadFileInit();
       this.resize();
       window.onresize = () => {
@@ -328,7 +337,7 @@ export default {
       window.onbeforeunload = () => {
         this.save();
       };
-      this.getKeywords();
+      // this.getKeywords();
       this.initDrag();
     },
     ace_editorInit(editor) {
@@ -346,8 +355,11 @@ export default {
       });
       // 初始化
       this.loadConf();
+      // this.editor = editor;
+      // editor.focus();
+    },
+    manocoHandler(editor) {
       this.editor = editor;
-      editor.focus();
     },
     initDrag() {
       const _this = this;
@@ -402,9 +414,9 @@ export default {
               : n_height < _this.height * 0.2
               ? _this.height * 0.2
               : n_height;
-
-          _this.editor.resize(); // 调整尺寸
-          _this.$refs.stdin.resize(); // 调整尺寸
+          _this.editor.layout();
+          // _this.editor.resize(); // 调整尺寸
+          // _this.$refs.stdin.resize(); // 调整尺寸
           document.onmouseup = function () {
             if (_this.debug_width <= 100) _this.debug_width = 0;
             // 鼠标抬起时不再移动
@@ -426,19 +438,19 @@ export default {
     stdinChange(editor) {
       this.stdin = editor.getValue();
     },
-    getKeywords() {
-      // 补全，文件从远程拉取
-      axios
-        .get("http://106.52.130.81/lib/keywords.json?" + Date.now())
-        .then((res) => {
-          let keywords = res.data,
-            key_arr = [];
-          keywords.forEach((item) => {
-            key_arr.push(item);
-          });
-          this.$refs.ace_editor.setCompleteData(key_arr);
-        });
-    },
+    // getKeywords() {
+    //   // 补全，文件从远程拉取
+    //   axios
+    //     .get("http://106.52.130.81/lib/keywords.json?" + Date.now())
+    //     .then((res) => {
+    //       let keywords = res.data,
+    //         key_arr = [];
+    //       keywords.forEach((item) => {
+    //         key_arr.push(item);
+    //       });
+    //       this.$refs.ace_editor.setCompleteData(key_arr);
+    //     });
+    // },
     loadConf() {
       // 读取信息
       let Base64 = require("js-base64").Base64;

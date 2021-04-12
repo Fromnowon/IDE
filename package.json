@@ -16,6 +16,7 @@
     "js-beautify": "^1.13.5",
     "moment": "^2.29.1",
     "vue": "^2.5.2",
+    "vue-monaco": "^1.2.2",
     "vue2x-ace-editor": "^0.1.3"
   },
   "devDependencies": {
@@ -36,6 +37,7 @@
     "friendly-errors-webpack-plugin": "^1.6.1",
     "html-webpack-plugin": "^2.30.1",
     "node-notifier": "^5.1.2",
+    "monaco-editor-webpack-plugin": "^1.9.0",
     "optimize-css-assets-webpack-plugin": "^3.2.0",
     "ora": "^1.2.0",
     "portfinder": "^1.0.13",
