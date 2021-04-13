@@ -113,11 +113,11 @@
             >
               <VueAceEditor
                 width="100%"
-                height="100%"
+                :height="height - barHeight - debug_output_height + 'px'"
                 ref="stdin"
                 :options="{
-                  showLineNumbers: false,
-                  showGutter: false,
+                  showLineNumbers: true,
+                  showGutter: true,
                   printMargin: false,
                   tabSize: 4,
                 }"
@@ -129,7 +129,7 @@
               >
               </VueAceEditor>
             </el-header>
-            <div class="area_tip">
+            <div class="area_tip" style="border-top: 1px solid rgba(144, 147, 153, 0.3)">
               Stdout<i
                 v-show="stdout"
                 style="margin-left: 10px; cursor: pointer; color: #e6a23c"
