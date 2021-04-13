@@ -18,7 +18,7 @@ npm run build
 ![pic](https://github.com/Fromnowon/IDE/blob/main/pic/ide.PNG)
 
 
-monaco分支，使用微软Monaco Editor，体积庞大。纯粹想体验一下VScode在网页端的感觉，所以只用到了它 ~~**10%**~~  **20%**的功能
+monaco分支，使用微软Monaco Editor，体积庞大。纯粹想体验一下VScode在网页端的感觉，所以只用到了它 ~~**10%**~~  __20%__的功能
 
 做好了错误提示！虽然用的不是词法分析，而是根据编译器返回的错误进行信息提取，但至少有了
 
