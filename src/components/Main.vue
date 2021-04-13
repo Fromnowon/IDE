@@ -88,6 +88,7 @@
               :options="options"
               @editorWillMount="manocoHandler2"
               @editorDidMount="manocoHandler"
+              @change="changeHandle"
             />
           </div>
         </el-main>
@@ -129,7 +130,10 @@
               >
               </VueAceEditor>
             </el-header>
-            <div class="area_tip" style="border-top: 1px solid rgba(144, 147, 153, 0.3)">
+            <div
+              class="area_tip"
+              style="border-top: 1px solid rgba(144, 147, 153, 0.3)"
+            >
               Stdout<i
                 v-show="stdout"
                 style="margin-left: 10px; cursor: pointer; color: #e6a23c"
@@ -280,7 +284,6 @@ export default {
         //h5
         alert("IDE布局未适配移动端，请谨慎使用");
       }
-      // this.bindKey();
       this.dragLoadFileInit();
       this.resize();
       window.onresize = () => {
@@ -290,7 +293,6 @@ export default {
       window.onbeforeunload = () => {
         this.save();
       };
-      // this.getKeywords();
       this.initDrag();
     },
     ace_editorInit(editor) {
@@ -304,6 +306,22 @@ export default {
       this.loadConf();
       // this.editor = editor;
       // editor.focus();
+    },
+    initLexicalAnalyzer() {
+      var lexAnalyzer = new LexicalAnalyzer();
+      lexAnalyzer.initLexAnalyzer(this.code);
+      // console.log("代码值：", this.code);
+      let lexicalResult = lexAnalyzer.getLexResult();
+      console.log("词法分析器返回结果：", lexicalResult);
+    },
+    changeHandle() {
+      // 清除编辑行错误标记
+      const lineNumber = this.editor.getPosition().lineNumber;
+      window.monaco.editor.setModelMarkers(
+        this.editor.getModel(),
+        lineNumber + "",
+        []
+      );
     },
     manocoHandler2(manoco) {
       window.monaco = monaco;
@@ -515,6 +533,15 @@ export default {
       if (this.ondebug) return;
       if (!this.debug_width) this.debug_width = 400;
 
+      // 提交时清除所有错误
+      const lines = this.editor.getModel().getLineCount();
+      for (let i = 1; i <= lines; i++)
+        window.monaco.editor.setModelMarkers(
+          this.editor.getModel(),
+          i + "",
+          []
+        );
+
       this.tip = this.$message({
         dangerouslyUseHTMLString: true,
         message: "<strong>处理中，请稍等...</strong>",
@@ -576,6 +603,7 @@ export default {
               _this.tip.close();
               _this.ondebug = false;
               if (e.status.id == 3) {
+                // 正常运行
                 _this.stdout = Base64.decode(e.stdout || "5peg");
               } else {
                 console.log(e);
@@ -583,9 +611,13 @@ export default {
                   message: "调试结果异常，请查看输出信息",
                   type: "warning",
                 });
-                if (e.status.id == 6)
-                  _this.stdout = Base64.decode(e.compile_output);
-                else if (e.status.id == 11 || e.status.id == 5)
+                if (e.status.id == 6) {
+                  // 编译错误
+                  const info = Base64.decode(e.compile_output);
+                  _this.stdout = info;
+                  if (_this.mode == "c_cpp") _this.getErr(info);
+                } else if (e.status.id == 11 || e.status.id == 5)
+                  // 段错误或超时
                   // runtime error
                   _this.stdout = e.status.description;
                 else _this.stdout = Base64.decode(e.stderr);
@@ -593,6 +625,50 @@ export default {
             }
           });
       }, 1000);
+    },
+    getErr(r) {
+      const arr = r.split("\n");
+      let err = [arr.length + 1]; // 每行错误合并到子数组
+      for (let i = 1; i <= arr.length; i++) err[i] = [];
+      arr.forEach((element, index) => {
+        // 先验证main.cpp
+        if (element.substr(0, 8) == "main.cpp") {
+          // 判断第10位是否数字
+          let str = element.substr(9, element.length);
+          if (str[0] >= "0" && str[0] <= "9") {
+            // 确定错误代码长度
+            const tmp = arr[index + 2];
+            const s = tmp.lastIndexOf("^") + 1;
+            let _s = s;
+            while (tmp[_s] == "~" && tmp[_s] != "\n") _s++;
+            const len = _s - s + 1;
+            // 到下个冒号之间为错误行号
+            let row = str.substr(0, str.indexOf(":"));
+            str = str.substr(str.indexOf(":") + 1, str.length);
+            // 到下个冒号之间为错误列号
+            let col = str.substr(0, str.indexOf(":"));
+            // 最后一个冒号到换行为错误信息
+            const info = str.substr(str.indexOf(":") + 1, str.length).trim();
+            const _err = {
+              startLineNumber: parseInt(row),
+              startColumn: parseInt(col),
+              endLineNumber: parseInt(row),
+              endColumn: parseInt(col) + parseInt(len),
+              message: info,
+              severity: window.monaco.MarkerSeverity.Error, // 提示的类型
+            };
+            err[parseInt(row)].push(_err);
+          }
+        }
+      });
+      console.log(err);
+      err.forEach((item, index) => {
+        window.monaco.editor.setModelMarkers(
+          this.editor.getModel(),
+          index + "",
+          item
+        );
+      });
     },
     resize() {
       this.height = document.documentElement.clientHeight - this.barHeight;
