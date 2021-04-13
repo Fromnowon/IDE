@@ -1,7 +1,8 @@
 # IDE
  
-前端：VUE + ElementUI
-判题机：judge0
+前端：```VUE + ElementUI```
+
+判题机：```judge0```
 
 ```
 npm i
