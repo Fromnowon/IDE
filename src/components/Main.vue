@@ -134,7 +134,7 @@
               >
               </VueAceEditor>
             </el-header>
-            <div class="area_tip">
+            <div class="area_tip" style="border-top: 1px solid rgba(144, 147, 153, 0.3)">
               Stdout<i
                 v-show="stdout"
                 style="margin-left: 10px; cursor: pointer; color: #e6a23c"
