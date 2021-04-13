@@ -2,7 +2,7 @@
   <div class="main">
     <el-container>
       <el-header
-        :class="themeClass"
+        class="ace-kr-theme"
         :height="barHeight + 'px'"
         style="border-bottom: 1px solid rgba(144, 147, 153, 0.3)"
       >
@@ -73,9 +73,6 @@
             <span style="font-weight: bold">{{
               mode === "c_cpp" ? "C++ (GCC 9.2.0)" : "Python (3.8.1)"
             }}</span>
-            <el-divider direction="vertical"></el-divider>
-            {{ "AUTOCOMPLETE : " }}
-            <span style="font-weight: bold">{{ autoCmp ? "ON" : "OFF" }}</span>
           </div>
         </div>
       </el-header>
@@ -84,28 +81,19 @@
           <div class="editor_div">
             <MonacoEditor
               :style="{ height: height + 'px', width: '100%' }"
+              ref="manoco"
               v-model="code"
-              language="cpp"
+              theme="vs-dark"
+              :language="mode == 'c_cpp' ? 'cpp' : 'python'"
+              :options="options"
+              @editorWillMount="manocoHandler2"
               @editorDidMount="manocoHandler"
             />
-            <!-- <VueAceEditor
-              width="100%"
-              :height="height"
-              ref="ace_editor"
-              :content="code_"
-              :options="options"
-              :fontSize="fontsize"
-              :lang="mode"
-              :theme="theme"
-              @init="ace_editorInit"
-              @onChange="codeChange"
-            >
-            </VueAceEditor> -->
           </div>
         </el-main>
         <el-aside
           :width="debug_width + 'px'"
-          :class="themeClass"
+          class="ace-kr-theme"
           :style="{ width: debug_width + 'px' }"
         >
           <el-container>
@@ -168,7 +156,7 @@
       title="设置"
       :visible.sync="settingsDialogVisible"
       custom-class="settingsDialog"
-      width="40%"
+      width="30%"
     >
       <div style="padding: 0 10px">
         <el-row :span="24">
@@ -198,38 +186,16 @@
             </el-input>
           </el-col>
         </el-row>
-        <el-row :span="24">
-          <el-col :span="12"
-            ><p>主题</p>
-            <el-select v-model="theme" size="small" style="max-width: 120pt">
-              <el-option
-                v-for="(item, index) in themeList"
-                :key="index"
-                :label="item"
-                :value="item"
-              >
-              </el-option> </el-select
-          ></el-col>
-          <el-col :span="12" style="padding-left: 10px"
-            ><p>提示</p>
-            <el-switch
-              v-model="autoCmp"
-              active-color="#13ce66"
-              inactive-color="#C0C4CC"
-            >
-            </el-switch
-          ></el-col>
-        </el-row>
         <p>字号</p>
-        <el-slider v-model="fontsize" :min="10" :max="30"></el-slider>
+        <el-slider v-model="options.fontSize" :min="10" :max="30"></el-slider>
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="settingsDialogVisible = false">关 闭</el-button>
       </span>
     </el-dialog>
-    <el-dialog title="提示" :visible.sync="helpDialogVisible" width="40%">
+    <el-dialog title="提示" :visible.sync="helpDialogVisible" width="30%">
       <h4>关于</h4>
-      <p>编辑器目前支持C++、Python，后续会添加更多语言</p>
+      <p>Monaco版，编辑器目前支持C++、Python，后续会添加更多语言</p>
       <p>
         开源：<el-link type="primary" @click="go"
           >https://github.com/Fromnowon/IDE</el-link
@@ -239,9 +205,6 @@
       <p><span style="color: #409eff">F9</span> - 运行代码</p>
       <p><span style="color: #409eff">Ctrl + F</span> - 查找，替换</p>
       <p><span style="color: #409eff">Ctrl + Enter</span> - 下方插入一行</p>
-      <p>
-        <span style="color: #409eff">Ctrl + Alt + Enter</span> - 上方插入一行
-      </p>
       <p>
         <span style="color: #409eff">Shift + Alt + F</span> - 格式化代码<span
           style="color: red"
@@ -260,7 +223,7 @@
       class="resize_debug"
       :style="{
         top: height - barHeight - debug_output_height + 2 * 24 + 'px',
-        left: width - debug_width - 21 + 'px',
+        left: width - debug_width - 30 + 'px',
       }"
     >
       <i v-if="debug_width" class="el-icon-d-arrow-right"></i>
@@ -288,11 +251,8 @@ export default {
       editor: "",
       width: null,
       height: null,
-      fontsize: 16,
-      theme: "textmate",
-      themeList: [],
-      code: "const noop = () => {}",
-      code_: "",
+      theme: "kr_theme",
+      code: "",
       stdin: "",
       stdout: null,
       token: "",
@@ -300,22 +260,14 @@ export default {
       server: "",
       default_server: "106.52.130.81:2358",
       ondebug: false,
-      autoCmp: false,
       tip: null,
-      themeClass: "textmate",
       barHeight: 32,
       settingsDialogVisible: false,
       helpDialogVisible: false,
       debug_width: 400,
       debug_output_height: 600,
       options: {
-        enableBasicAutocompletion: false, //启用基本自动完成功能
-        enableLiveAutocompletion: true, //启用实时自动完成功能 （比如：智能代码提示）
-        enableSnippets: false, //启用代码段
-        printMargin: false,
-        vScrollBarAlwaysVisible: true,
-        scrollPastEnd: 0.2,
-        tabSize: 4,
+        fontSize: 18,
       },
     };
   },
@@ -332,6 +284,7 @@ export default {
       this.dragLoadFileInit();
       this.resize();
       window.onresize = () => {
+        this.editor.layout();
         this.resize(); // 动态调整高度
       };
       window.onbeforeunload = () => {
@@ -345,21 +298,47 @@ export default {
       require("brace/ext/searchbox");
       require("brace/mode/c_cpp");
       require("brace/mode/python");
+      require("brace/theme/kr_theme.js");
 
-      // 导入主题
-      const requireAll = require.context("brace/theme", false, /\.js$/);
-      requireAll.keys().forEach((item) => {
-        let theme = item.replace(/\.\//, "").replace(/\.js$/, "");
-        this.themeList.push(theme);
-        require("brace/theme/" + theme + ".js");
-      });
       // 初始化
       this.loadConf();
       // this.editor = editor;
       // editor.focus();
     },
+    manocoHandler2(manoco) {
+      window.monaco = monaco;
+    },
     manocoHandler(editor) {
       this.editor = editor;
+      const arr = [
+        {
+          id: "1", // 菜单项 id
+          label: "Run", // 菜单项名称
+          keybindings: [window.monaco.KeyCode.F9], // 绑定快捷键
+          contextMenuGroupId: "1_modification", // 所属菜单的分组
+          run: () => {
+            this.debug();
+          }, // 点击后执行的操作
+        },
+        {
+          id: "2", // 菜单项 id
+          label: "Format", // 菜单项名称
+          keybindings: [
+            window.monaco.KeyMod.Alt |
+              window.monaco.KeyMod.Shift |
+              window.monaco.KeyCode.KEY_F,
+          ], // 绑定快捷键
+          contextMenuGroupId: "1_modification", // 所属菜单的分组
+          run: () => {
+            this.code = js_beautify(editor.getValue(), {
+              indent_size: 4,
+              brace_style: "preserve-inline",
+              space_before_conditional: true,
+            });
+          }, // 点击后执行的操作
+        },
+      ];
+      for (let i = 0; i < arr.length; i++) editor.addAction(arr[i]);
     },
     initDrag() {
       const _this = this;
@@ -415,10 +394,13 @@ export default {
               ? _this.height * 0.2
               : n_height;
           _this.editor.layout();
-          // _this.editor.resize(); // 调整尺寸
-          // _this.$refs.stdin.resize(); // 调整尺寸
           document.onmouseup = function () {
-            if (_this.debug_width <= 100) _this.debug_width = 0;
+            if (_this.debug_width <= 100) {
+              _this.debug_width = 0;
+              _this.$nextTick(() => {
+                _this.editor.layout();
+              });
+            }
             // 鼠标抬起时不再移动
             // 预防鼠标弹起来后还会循环（即预防鼠标放上去的时候还会移动）
             document.onmousedown = document.onmousemove = null;
@@ -432,33 +414,16 @@ export default {
     clearStdin() {
       this.$refs.stdin.setValue("");
     },
-    codeChange(editor) {
-      this.code = editor.getValue();
-    },
     stdinChange(editor) {
       this.stdin = editor.getValue();
     },
-    // getKeywords() {
-    //   // 补全，文件从远程拉取
-    //   axios
-    //     .get("http://106.52.130.81/lib/keywords.json?" + Date.now())
-    //     .then((res) => {
-    //       let keywords = res.data,
-    //         key_arr = [];
-    //       keywords.forEach((item) => {
-    //         key_arr.push(item);
-    //       });
-    //       this.$refs.ace_editor.setCompleteData(key_arr);
-    //     });
-    // },
     loadConf() {
       // 读取信息
       let Base64 = require("js-base64").Base64;
       let code = localStorage.getItem("ace_code");
-      if (code) this.code_ = Base64.decode(code);
-      this.theme = localStorage.getItem("ace_theme") || "textmate";
-      this.fontsize = parseInt(localStorage.getItem("ace_fontsize")) || 18;
-      this.autoCmp = localStorage.getItem("ace_auto") == "true" ? true : false;
+      if (code) this.code = Base64.decode(code);
+      this.options.fontSize =
+        parseInt(localStorage.getItem("ace_fontsize")) || 18;
       this.mode = localStorage.getItem("ace_lang") || "c_cpp";
       this.server = localStorage.getItem("ace_server") || this.default_server;
     },
@@ -534,11 +499,9 @@ export default {
     },
     save() {
       this.saveCode();
-      localStorage.setItem("ace_theme", this.theme); // 保存主题
-      localStorage.setItem("ace_fontsize", this.fontsize); // 保存字号
-      localStorage.setItem("ace_auto", this.autoCmp); // 保存补全
+      localStorage.setItem("ace_fontsize", this.options.fontSize); // 保存字号
       localStorage.setItem("ace_lang", this.mode); // 保存语言
-      localStorage.setItem("ace_server", this.server); // 保存语言
+      localStorage.setItem("ace_server", this.server); // 保存服务器
       console.log("saved");
     },
     go() {
@@ -635,77 +598,6 @@ export default {
       this.height = document.documentElement.clientHeight - this.barHeight;
       this.width = document.documentElement.clientWidth;
     },
-    bindKey() {
-      const _this = this;
-      window.addEventListener(
-        "keydown",
-        function (e) {
-          if (e.keyCode == 120) {
-            //调试
-            e.preventDefault();
-            _this.debug();
-          }
-          if ((e.key == "s" || e.key == "S") && e.altKey) {
-            // alt + s 保存
-            e.preventDefault();
-            if (_this.editor.getValue().length > 0) _this.save();
-          }
-          if (e.keyCode == 70 && e.altKey && e.shiftKey) {
-            // 格式化代码
-            e.preventDefault();
-            let pos = _this.editor.selection.getCursor();
-            _this.editor.setValue(
-              js_beautify(_this.editor.getValue(), {
-                indent_size: 4,
-                brace_style: "preserve-inline",
-                space_before_conditional: true,
-              }),
-              1
-            );
-          }
-          if (e.keyCode == 13 && e.altKey && e.ctrlKey) {
-            // atl + ctrl + enter上方新增一行
-            e.preventDefault();
-            let nowRow = _this.editor.selection.getCursor().row; // 获取当前行号，从0开始
-            let nowRowContent = _this.editor.session.getLine(nowRow); // 获取当前行内容
-            let spaceCounter = 0;
-            while (nowRowContent[spaceCounter] == " ") spaceCounter++; // 获取空格数
-            _this.editor.gotoLine(nowRow); // 定位到指定行，从1开始
-            _this.editor.session.insert({ row: nowRow - 1, col: 0 }, "\n");
-            _this.editor.gotoLine(nowRow + 1);
-            _this.editor.session.insert(
-              { row: nowRow, col: 0 },
-              nowRowContent.slice(0, spaceCounter)
-            ); // 同步插入行与当前行的缩进
-          }
-          if (e.keyCode == 13 && e.ctrlKey && !e.altKey) {
-            // ctrl + enter 下方新增一行
-            e.preventDefault();
-            let nowRow = _this.editor.selection.getCursor().row;
-            let nowRowContent = _this.editor.session.getLine(nowRow); // 获取当前行内容
-            let spaceCounter = 0;
-            while (nowRowContent[spaceCounter] == " ") spaceCounter++; // 获取空格数
-            _this.editor.session.insert({ row: nowRow, col: 0 }, "\n");
-            _this.editor.gotoLine(nowRow + 2);
-            _this.editor.session.insert(
-              { row: nowRow + 1, col: 0 },
-              nowRowContent.slice(0, spaceCounter)
-            ); // 同步插入行与当前行的缩进
-          }
-        },
-        false
-      );
-    },
-  },
-  watch: {
-    theme(v) {
-      this.themeClass = "ace-" + v.split("_").join("-");
-    },
-    autoCmp(v) {
-      this.editor.setOptions({
-        enableLiveAutocompletion: v,
-      });
-    },
   },
 };
 </script>
@@ -775,14 +667,10 @@ export default {
   padding-left: 5px;
   border-bottom: 1px solid rgba(144, 147, 153, 0.3);
 }
-.ace-tm {
-  background-color: unset !important;
-  color: unset !important;
-}
 /* 滚动条样式 */
 ::-webkit-scrollbar {
-  width: 3px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 /* 滑轨 */
 ::-webkit-scrollbar-track {
@@ -799,7 +687,6 @@ export default {
 ::-webkit-scrollbar-thumb:window-inactive {
   background: rgba(144, 147, 153, 0.5);
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background-color: #777;
 }
