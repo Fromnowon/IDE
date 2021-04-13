@@ -1,6 +1,6 @@
 # IDE
 
-![image](https://user-images.githubusercontent.com/2792725/114507837-44cfd300-9c66-11eb-9e76-e261b1989be4.png)
+![image](https://user-images.githubusercontent.com/2792725/114566397-ce05fa80-9ca4-11eb-9ca8-8e183e5d6ddd.png)
 
 采用微软Monaco Editor
 
