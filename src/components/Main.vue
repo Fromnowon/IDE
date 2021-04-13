@@ -119,11 +119,11 @@
             >
               <VueAceEditor
                 width="100%"
-                height="100%"
+                :height="height - barHeight - debug_output_height + 'px'"
                 ref="stdin"
                 :options="{
-                  showLineNumbers: false,
-                  showGutter: false,
+                  showLineNumbers: true,
+                  showGutter: true,
                   printMargin: false,
                   tabSize: 4,
                 }"
