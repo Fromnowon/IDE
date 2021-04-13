@@ -1,15 +1,14 @@
 # IDE
- 
-VUE + ElementUI + judge0
+
+![image](https://user-images.githubusercontent.com/2792725/114507837-44cfd300-9c66-11eb-9e76-e261b1989be4.png)
+
+采用微软Monaco Editor
 
 ```
-npm i
-npm run dev
-npm run build
+1、代码补全；
+2、函数说明；
+3、错误提示；
+等等功能
 ```
 
-上课用，方便调试代码
-
-![pic](https://github.com/Fromnowon/IDE/blob/main/pic/ide.PNG)
-
-monaco分支，主编辑器为微软Monaco Editor，完全是想体验一下VScode在网页端的感觉，很多功能没时间去完善
+一概没有...
