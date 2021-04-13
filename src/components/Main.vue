@@ -307,13 +307,6 @@ export default {
       // this.editor = editor;
       // editor.focus();
     },
-    initLexicalAnalyzer() {
-      var lexAnalyzer = new LexicalAnalyzer();
-      lexAnalyzer.initLexAnalyzer(this.code);
-      // console.log("代码值：", this.code);
-      let lexicalResult = lexAnalyzer.getLexResult();
-      console.log("词法分析器返回结果：", lexicalResult);
-    },
     changeHandle() {
       // 清除编辑行错误标记
       const lineNumber = this.editor.getPosition().lineNumber;
@@ -661,7 +654,6 @@ export default {
           }
         }
       });
-      console.log(err);
       err.forEach((item, index) => {
         window.monaco.editor.setModelMarkers(
           this.editor.getModel(),
