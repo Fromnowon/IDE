@@ -288,6 +288,7 @@ export default {
       debug_output_height: 600,
       options: {
         fontSize: 18,
+        tabSize: 4
       },
     };
   },
