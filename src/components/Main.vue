@@ -1,8 +1,7 @@
 <template>
-  <div class="main">
+  <div :class="'main ace-' + (theme == 'textmate' ? theme : 'kr-theme')">
     <el-container>
       <el-header
-        class="ace-kr-theme"
         :height="barHeight + 'px'"
         style="border-bottom: 1px solid rgba(144, 147, 153, 0.3)"
       >
@@ -83,7 +82,7 @@
               :style="{ height: height + 'px', width: '100%' }"
               ref="manoco"
               v-model="code"
-              theme="vs-dark"
+              :theme="theme == 'textmate' ? 'vs' : 'vs-dark'"
               :language="mode == 'c_cpp' ? 'cpp' : 'python'"
               :options="options"
               @editorWillMount="manocoHandler2"
@@ -94,7 +93,6 @@
         </el-main>
         <el-aside
           :width="debug_width + 'px'"
-          class="ace-kr-theme"
           :style="{ width: debug_width + 'px' }"
         >
           <el-container>
@@ -160,7 +158,7 @@
       title="设置"
       :visible.sync="settingsDialogVisible"
       custom-class="settingsDialog"
-      width="30%"
+      width="40%"
     >
       <div style="padding: 0 10px">
         <el-row :span="24">
@@ -190,6 +188,19 @@
             </el-input>
           </el-col>
         </el-row>
+        <el-row>
+          <p>主题</p>
+          <el-col>
+            <el-select
+              v-model="theme"
+              placeholder="请选择"
+              style="max-width: 120pt"
+            >
+              <el-option key="1" label="浅色" value="textmate"> </el-option>
+              <el-option key="2" label="深色" value="kr_theme"> </el-option>
+            </el-select>
+          </el-col>
+        </el-row>
         <p>字号</p>
         <el-slider v-model="options.fontSize" :min="10" :max="30"></el-slider>
       </div>
@@ -197,7 +208,7 @@
         <el-button @click="settingsDialogVisible = false">关 闭</el-button>
       </span>
     </el-dialog>
-    <el-dialog title="提示" :visible.sync="helpDialogVisible" width="30%">
+    <el-dialog title="提示" :visible.sync="helpDialogVisible" width="40%">
       <h4>关于</h4>
       <p>Monaco版，编辑器目前支持C++、Python，后续会添加更多语言</p>
       <p>
@@ -255,13 +266,18 @@ export default {
       editor: "",
       width: null,
       height: null,
-      theme: "kr_theme",
+      // theme: "kr_theme",
+      theme: "textmate",
       code: "",
+      codeLines: 0,
       stdin: "",
       stdout: null,
       token: "",
       mode: "c_cpp",
       server: "",
+      hints: [], // 关键词
+      fun_hints_key: [], // 函数名
+      fun_hints: {}, // 函数补全
       default_server: "106.52.130.81:2358",
       ondebug: false,
       tip: null,
@@ -301,7 +317,7 @@ export default {
       require("brace/mode/c_cpp");
       require("brace/mode/python");
       require("brace/theme/kr_theme.js");
-
+      require("brace/theme/textmate.js");
       // 初始化
       this.loadConf();
       // this.editor = editor;
@@ -310,6 +326,7 @@ export default {
     changeHandle() {
       // 清除编辑行错误标记
       const lineNumber = this.editor.getPosition().lineNumber;
+      this.codeLines - lineNumber;
       window.monaco.editor.setModelMarkers(
         this.editor.getModel(),
         lineNumber + "",
@@ -321,6 +338,16 @@ export default {
     },
     manocoHandler(editor) {
       this.editor = editor;
+      // 全局绑定f9
+      window.addEventListener("keydown", (e) => {
+        if (e.keyCode == 120) {
+          //调试
+          e.preventDefault();
+          this.debug();
+        }
+      });
+
+      // 菜单，快捷键
       const arr = [
         {
           id: "1", // 菜单项 id
@@ -350,6 +377,17 @@ export default {
         },
       ];
       for (let i = 0; i < arr.length; i++) editor.addAction(arr[i]);
+
+      // 先请求补全数据，成功再处理代码提示
+      axios
+        .get("http://106.52.130.81/lib/completion.json?" + Date.now())
+        .then((res) => {
+          this.hints = res.data.keywords;
+          const functions = res.data.snippets;
+          this.fun_hints = functions;
+          for (let key in functions) this.fun_hints_key.push(key);
+          this.initCompletion();
+        });
     },
     initDrag() {
       const _this = this;
@@ -422,6 +460,92 @@ export default {
         };
       };
     },
+    initCompletion() {
+      // 为该语言注册一个语言提示器--联想
+      const that = this;
+      let createCompleters = (textUntilPosition) => {
+        const monaco = window.monaco;
+        //过滤特殊字符
+        let _textUntilPosition = textUntilPosition
+          .replace(/[\*\[\]@\$\(\)]/g, "")
+          .replace(/(\s+|\.|\#|\<|\>)/g, " ");
+        //切割成数组
+        let arr = _textUntilPosition.split(" ");
+        //取当前输入值
+        let activeStr = arr[arr.length - 1];
+        //获得输入值的长度
+        let len = activeStr.length;
+
+        //获得编辑区域内已经存在的内容
+        let rexp = new RegExp("([^\\w]|^)" + activeStr + "\\w*", "gim");
+        let match = that.code.match(rexp);
+        let _hints = !match
+          ? []
+          : match.map((ele) => {
+              let rexp = new RegExp(activeStr, "gim");
+              let search = ele.search(rexp);
+              return ele.substr(search);
+            });
+
+        //查找匹配当前输入值的元素
+        let hints = Array.from(
+          new Set([...that.hints, ...that.fun_hints_key, ..._hints])
+        )
+          .sort()
+          .filter((ele) => {
+            let rexp = new RegExp(ele.substr(0, len), "gim");
+            return (match && match.length === 1 && ele === activeStr) ||
+              ele.length === 1
+              ? false
+              : activeStr.match(rexp);
+          });
+        //添加内容提示
+        let res = hints.map((ele) => {
+          if (that.hints.indexOf(ele) > -1) {
+            // 匹配关键字
+            return {
+              label: ele,
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              documentation: ele,
+              insertText: ele,
+            };
+          } else if (that.fun_hints_key.indexOf(ele) > -1) {
+            // 匹配函数
+            return {
+              label: ele,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertTextRules:
+                monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: ele,
+              insertText: that.fun_hints[ele],
+            };
+          } else {
+            // 否则加入本地
+            return {
+              label: ele,
+              kind: monaco.languages.CompletionItemKind.Text,
+              documentation: ele,
+              insertText: ele,
+            };
+          }
+        });
+        return res;
+      };
+      window.monaco.languages.registerCompletionItemProvider("cpp", {
+        provideCompletionItems(model, position) {
+          var textUntilPosition = model.getValueInRange({
+            startLineNumber: position.lineNumber,
+            startColumn: 1,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column,
+          });
+          var suggestions = createCompleters(textUntilPosition);
+          return {
+            suggestions: suggestions,
+          };
+        },
+      });
+    },
     clearStdin() {
       this.$refs.stdin.setValue("");
     },
@@ -433,6 +557,7 @@ export default {
       let Base64 = require("js-base64").Base64;
       let code = localStorage.getItem("ace_code");
       if (code) this.code = Base64.decode(code);
+      this.codeLines = Base64.decode(code).split("\n").length;
       this.options.fontSize =
         parseInt(localStorage.getItem("ace_fontsize")) || 18;
       this.mode = localStorage.getItem("ace_lang") || "c_cpp";
@@ -621,8 +746,8 @@ export default {
     },
     getErr(r) {
       const arr = r.split("\n");
-      let err = [arr.length + 1]; // 每行错误合并到子数组
-      for (let i = 1; i <= arr.length; i++) err[i] = [];
+      let err = [this.codeLines + 1]; // 每行错误合并到子数组
+      for (let i = 1; i <= this.codeLines; i++) err[i] = [];
       arr.forEach((element, index) => {
         // 先验证main.cpp
         if (element.substr(0, 8) == "main.cpp") {
@@ -667,6 +792,11 @@ export default {
       this.width = document.documentElement.clientWidth;
     },
   },
+  watch: {
+    theme() {
+      this.stdout = "";
+    },
+  },
 };
 </script>
 
@@ -678,6 +808,7 @@ export default {
 }
 .editor_div {
   overflow: hidden;
+  border-right: 0.5px solid rgba(144, 147, 153, 0.3);
 }
 .debug {
   padding: 20px;
