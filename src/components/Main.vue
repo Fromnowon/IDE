@@ -66,10 +66,6 @@
               <i v-else class="el-icon-caret-right"></i>
             </div>
           </el-tooltip>
-
-          <div style="float: left; cursor: pointer" @click="diff = !diff">
-            <i class="el-icon-files"></i>
-          </div>
         </div>
       </el-header>
       <el-container>
@@ -221,9 +217,9 @@
     </el-dialog>
     <el-dialog title="提示" :visible.sync="helpDialogVisible" width="40%">
       <h4>关于</h4>
-      <p>Monaco版，编辑器目前支持C++、Python，后续会添加更多语言</p>
+      <p>编辑器支持C++、Python代码高亮及运行</p>
       <p>
-        开源：<el-link type="primary" @click="go"
+        GitHub：<el-link type="primary" @click="go"
           >https://github.com/Fromnowon/IDE</el-link
         >
       </p>
@@ -231,6 +227,8 @@
       <p><span style="color: #409eff">F9</span> - 运行代码</p>
       <p><span style="color: #409eff">Ctrl + F</span> - 查找，替换</p>
       <p><span style="color: #409eff">Ctrl + Enter</span> - 下方插入一行</p>
+      <p></p>
+      <p><span style="color: #409eff">Ctrl + \</span> - 拆分编辑器</p>
       <p>
         <span style="color: #409eff">Shift + Alt + F</span> - 格式化代码<span
           style="color: red"
@@ -367,6 +365,10 @@ export default {
           //调试
           e.preventDefault();
           this.debug();
+        }
+        if (e.ctrlKey && e.keyCode == 220) {
+          e.preventDefault();
+          this.diff = !this.diff;
         }
       });
 
