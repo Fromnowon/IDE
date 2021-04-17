@@ -22,7 +22,7 @@ http://ide.zhaozihang.com
 ![image](https://user-images.githubusercontent.com/2792725/115114666-14b86500-9fc3-11eb-881e-b24b3b8b0fc5.png)
 
 
-Monaco Editor，VScode的编辑器
+Monaco Editor，VSCode的编辑器
 
 http://ide2.zhaozihang.com
 
