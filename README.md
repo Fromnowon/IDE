@@ -26,6 +26,8 @@ Monaco Editor，VSCode的编辑器
 
 http://ide2.zhaozihang.com
 
+https://github.com/Fromnowon/IDE/tree/monaco
+
 ```1、代码补全；2、主题更换；3、错误标记；4、拆分窗口；5、读取、保存文件```
 
 ![image](https://user-images.githubusercontent.com/2792725/115114499-5a286280-9fc2-11eb-8077-f2ce248f42e7.png)
