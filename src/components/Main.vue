@@ -1,5 +1,5 @@
 <template>
-  <div :class="'main ace-' + (theme == 'textmate' ? theme : 'kr-theme')">
+  <div :class="'main ace-' + (theme == 'textmate' ? theme : 'chaos')">
     <el-container>
       <el-header
         :height="barHeight + 'px'"
@@ -67,11 +67,8 @@
             </div>
           </el-tooltip>
 
-          <div style="float: left">
-            {{ "COMPLIER : " }}
-            <span style="font-weight: bold">{{
-              mode === "c_cpp" ? "C++ (GCC 9.2.0)" : "Python (3.8.1)"
-            }}</span>
+          <div style="float: left; cursor: pointer" @click="diff = !diff">
+            <i class="el-icon-files"></i>
           </div>
         </div>
       </el-header>
@@ -79,6 +76,7 @@
         <el-main>
           <div class="editor_div">
             <MonacoEditor
+              v-show="!diff"
               :style="{ height: height + 'px', width: '100%' }"
               ref="manoco"
               v-model="code"
@@ -88,6 +86,18 @@
               @editorWillMount="manocoHandler2"
               @editorDidMount="manocoHandler"
               @change="changeHandle"
+            />
+            <MonacoEditor
+              ref="manoco_diff"
+              v-show="diff"
+              :style="{ height: height + 'px', width: '100%' }"
+              :language="mode == 'c_cpp' ? 'cpp' : 'python'"
+              :options="options"
+              :diffEditor="true"
+              :value="code"
+              :original="code_"
+              @editorDidMount="manocoHandler3"
+              @change="changeHandle2"
             />
           </div>
         </el-main>
@@ -145,9 +155,10 @@
                 v-if="stdout"
                 :theme="theme"
                 :content="stdout"
-                :lang="mode"
+                lang="python"
+                :gutter="false"
                 :height="debug_output_height + 'px' - 5"
-                style="overflow: auto"
+                style="overflow: auto; padding: 5px"
               />
             </el-main>
           </el-container>
@@ -197,7 +208,7 @@
               style="max-width: 120pt"
             >
               <el-option key="1" label="浅色" value="textmate"> </el-option>
-              <el-option key="2" label="深色" value="kr_theme"> </el-option>
+              <el-option key="2" label="深色" value="chaos"> </el-option>
             </el-select>
           </el-col>
         </el-row>
@@ -253,6 +264,8 @@ import moment, { fn } from "moment";
 import { VueAceEditor, VueStaticHighlight } from "vue2x-ace-editor";
 import { js_beautify } from "js-beautify";
 import MonacoEditor from "vue-monaco";
+const Base64 = require("js-base64").Base64;
+import { Loading } from "element-ui";
 
 export default {
   name: "Main",
@@ -264,12 +277,14 @@ export default {
   data() {
     return {
       editor: "",
+      editor_diff: "",
       width: null,
       height: null,
       // theme: "kr_theme",
       theme: "textmate",
       code: "",
-      codeLines: 0,
+      code_: "",
+      diff: false,
       stdin: "",
       stdout: null,
       token: "",
@@ -278,17 +293,18 @@ export default {
       hints: [], // 关键词
       fun_hints_key: [], // 函数名
       fun_hints: {}, // 函数补全
-      default_server: "106.52.130.81:2358",
       ondebug: false,
       tip: null,
-      barHeight: 32,
+      barHeight: 28,
+      loadingInstance: null,
       settingsDialogVisible: false,
       helpDialogVisible: false,
       debug_width: 400,
       debug_output_height: 600,
       options: {
         fontSize: 18,
-        tabSize: 4
+        tabSize: 4,
+        roundedSelection: false,
       },
     };
   },
@@ -301,7 +317,7 @@ export default {
         //h5
         alert("IDE布局未适配移动端，请谨慎使用");
       }
-      this.dragLoadFileInit();
+      this.loadingInstance = Loading.service({ fullscreen: true });
       this.resize();
       window.onresize = () => {
         this.editor.layout();
@@ -310,6 +326,7 @@ export default {
       window.onbeforeunload = () => {
         this.save();
       };
+      this.dragLoadFileInit();
       this.initDrag();
     },
     ace_editorInit(editor) {
@@ -317,22 +334,27 @@ export default {
       require("brace/ext/searchbox");
       require("brace/mode/c_cpp");
       require("brace/mode/python");
-      require("brace/theme/kr_theme.js");
+      require("brace/theme/chaos.js");
       require("brace/theme/textmate.js");
       // 初始化
       this.loadConf();
-      // this.editor = editor;
-      // editor.focus();
+    },
+    changeHandle2(v, e) {
+      this.code = v;
     },
     changeHandle() {
-      // 清除编辑行错误标记
+      // 清除错误标记
       const lineNumber = this.editor.getPosition().lineNumber;
-      this.codeLines - lineNumber;
-      window.monaco.editor.setModelMarkers(
-        this.editor.getModel(),
-        lineNumber + "",
-        []
-      );
+      const model = this.editor.getModel();
+      window.monaco.editor.setModelMarkers(model, lineNumber + "", []);
+
+      const drs = this.editor.getLineDecorations(lineNumber);
+      drs.forEach((item) => {
+        model.deltaDecorations([item.id], []);
+      });
+    },
+    manocoHandler3() {
+      this.code_ = this.code;
     },
     manocoHandler2(manoco) {
       window.monaco = monaco;
@@ -379,15 +401,21 @@ export default {
       ];
       for (let i = 0; i < arr.length; i++) editor.addAction(arr[i]);
 
-      // 先请求补全数据，成功再处理代码提示
+      // 请求数据
+
       axios
-        .get("http://106.52.130.81/lib/completion.json?" + Date.now())
+        .get("http://106.52.130.81/lib/ide.json?" + Date.now())
         .then((res) => {
           this.hints = res.data.keywords;
+          this.server = res.data.server;
           const functions = res.data.snippets;
           this.fun_hints = functions;
           for (let key in functions) this.fun_hints_key.push(key);
           this.initCompletion();
+          this.$nextTick(() => {
+            // 以服务的方式调用的 Loading 需要异步关闭
+            this.loadingInstance.close();
+          });
         });
     },
     initDrag() {
@@ -430,26 +458,22 @@ export default {
           }
 
           // 移动时重新得到物体的距离，解决拖动时出现晃动现象
-          // obj.style.top = disY + "px";
-          //obj.style.left = disX + "px";
           _this.debug_width =
-            _this.width - disX - divX - 15 > 1000
+            _this.width - disX - divX - 20 > 1000
               ? 1000
-              : _this.width - disX - divX - 15;
-          let n_height = _this.height - disY - divY + _this.barHeight - 5;
+              : _this.width - disX - divX - 20;
+          let n_height = _this.height - disY - divY + _this.barHeight + 10;
           _this.debug_output_height =
             n_height > _this.height * 0.8
               ? _this.height * 0.8
               : n_height < _this.height * 0.2
               ? _this.height * 0.2
               : n_height;
-          _this.editor.layout();
+          _this.resize();
           document.onmouseup = function () {
             if (_this.debug_width <= 100) {
               _this.debug_width = 0;
-              _this.$nextTick(() => {
-                _this.editor.layout();
-              });
+              _this.resize();
             }
             // 鼠标抬起时不再移动
             // 预防鼠标弹起来后还会循环（即预防鼠标放上去的时候还会移动）
@@ -469,7 +493,7 @@ export default {
         //过滤特殊字符
         let _textUntilPosition = textUntilPosition
           .replace(/[\*\[\]@\$\(\)]/g, "")
-          .replace(/(\s+|\.|\#|\<|\>)/g, " ");
+          .replace(/(\s+|\.|\#|\<|\>)/g, " "); // 以+ . # < >分割字符串
         //切割成数组
         let arr = _textUntilPosition.split(" ");
         //取当前输入值
@@ -555,14 +579,11 @@ export default {
     },
     loadConf() {
       // 读取信息
-      let Base64 = require("js-base64").Base64;
       let code = localStorage.getItem("ace_code");
       if (code) this.code = Base64.decode(code);
-      this.codeLines = Base64.decode(code).split("\n").length;
       this.options.fontSize =
         parseInt(localStorage.getItem("ace_fontsize")) || 18;
       this.mode = localStorage.getItem("ace_lang") || "c_cpp";
-      this.server = localStorage.getItem("ace_server") || this.default_server;
     },
     saveToLocal() {
       //定义文件内容，类型必须为Blob 否则createObjectURL会报错
@@ -630,7 +651,6 @@ export default {
       };
     },
     saveCode() {
-      let Base64 = require("js-base64").Base64;
       let code = Base64.encode(this.code);
       localStorage.setItem("ace_code", code); // 保存代码
     },
@@ -638,7 +658,6 @@ export default {
       this.saveCode();
       localStorage.setItem("ace_fontsize", this.options.fontSize); // 保存字号
       localStorage.setItem("ace_lang", this.mode); // 保存语言
-      localStorage.setItem("ace_server", this.server); // 保存服务器
       console.log("saved");
     },
     go() {
@@ -652,15 +671,7 @@ export default {
       if (this.ondebug) return;
       if (!this.debug_width) this.debug_width = 400;
 
-      // 提交时清除所有错误
-      const lines = this.editor.getModel().getLineCount();
-      for (let i = 1; i <= lines; i++)
-        window.monaco.editor.setModelMarkers(
-          this.editor.getModel(),
-          i + "",
-          []
-        );
-
+      // 提交提示
       this.tip = this.$message({
         dangerouslyUseHTMLString: true,
         message: "<strong>处理中，请稍等...</strong>",
@@ -668,7 +679,6 @@ export default {
         center: true,
       });
 
-      let Base64 = require("js-base64").Base64;
       let code = Base64.encode(this.code);
 
       const _this = this;
@@ -683,7 +693,7 @@ export default {
             "/submissions/?base64_encoded=true&wait=false",
           {
             source_code: code,
-            language_id: _this.mode == "c_cpp" ? 54 : 71,
+            language_id: _this.mode == "c_cpp" ? 54 : 71, // cpp python
             stdin: Base64.encode(_this.stdin),
           },
           { timeout: 5000 }
@@ -696,7 +706,7 @@ export default {
           console.log(error);
           _this.ondebug = false;
           _this.tip.close();
-          this.$alert("请求异常，请检查服务器地址", "错误", {
+          this.$alert("请求异常，服务器无响应", "错误", {
             confirmButtonText: "确定",
             type: "error",
           });
@@ -704,8 +714,7 @@ export default {
     },
     getResult() {
       const _this = this;
-      let Base64 = require("js-base64").Base64;
-      let loop = setInterval(() => {
+      setTimeout(() => {
         axios
           .get(
             "http://" +
@@ -715,15 +724,19 @@ export default {
               "?base64_encoded=true"
           )
           .then((response) => {
-            if (_this.stdout) return; // 若已有结果，不再接受返回
             let e = response.data;
             if (e.status.id != 1 && e.status.id != 2) {
-              clearInterval(loop);
               _this.tip.close();
               _this.ondebug = false;
               if (e.status.id == 3) {
                 // 正常运行
-                _this.stdout = Base64.decode(e.stdout || "5peg");
+                _this.stdout = Base64.decode(e.stdout || ""); // 程序执行成功并返回结果与信息
+                _this.stdout +=
+                  "\n程序消耗:\ntime: " +
+                  parseFloat(e.time) * 1000 +
+                  " ms\nmemory: " +
+                  e.memory / 1000 +
+                  " MB";
               } else {
                 console.log(e);
                 _this.$message({
@@ -741,14 +754,19 @@ export default {
                   _this.stdout = e.status.description;
                 else _this.stdout = Base64.decode(e.stderr);
               }
+            } else {
+              setTimeout(() => {
+                _this.getResult();
+              }, 1000);
             }
           });
       }, 1000);
     },
     getErr(r) {
       const arr = r.split("\n");
-      let err = [this.codeLines + 1]; // 每行错误合并到子数组
-      for (let i = 1; i <= this.codeLines; i++) err[i] = [];
+      const codeLines = this.editor.getModel().getLineCount();
+      let err = [codeLines + 1]; // 每行错误合并到子数组
+      for (let i = 1; i <= codeLines; i++) err[i] = [];
       arr.forEach((element, index) => {
         // 先验证main.cpp
         if (element.substr(0, 8) == "main.cpp") {
@@ -780,22 +798,62 @@ export default {
           }
         }
       });
+      const model = this.editor.getModel();
       err.forEach((item, index) => {
-        window.monaco.editor.setModelMarkers(
-          this.editor.getModel(),
-          index + "",
-          item
-        );
+        if (item.length > 0) {
+          window.monaco.editor.setModelMarkers(model, index + "", item); // 添加错误标记
+          model.deltaDecorations(
+            // 添加错误行背景标记
+            [],
+            [
+              {
+                range: new monaco.Range(index, 1, index, 1),
+                options: {
+                  isWholeLine: true,
+                  className:
+                    this.theme == "textmate"
+                      ? "errorContentClassLight"
+                      : "errorContentClassDark",
+                },
+              },
+            ]
+          );
+        }
+      });
+    },
+    clearMarkers() {
+      // 提交时清除所有错误
+      const model = this.editor.getModel();
+      const lines = model.getLineCount();
+      for (let i = 1; i <= lines; i++)
+        window.monaco.editor.setModelMarkers(model, i + "", []);
+      const drs = model.getAllDecorations();
+      drs.forEach((item) => {
+        model.deltaDecorations([item.id], []);
       });
     },
     resize() {
       this.height = document.documentElement.clientHeight - this.barHeight;
       this.width = document.documentElement.clientWidth;
+      this.$nextTick(() => {
+        this.editor.layout();
+        this.$refs.manoco_diff.getEditor().layout();
+        this.$refs.manoco_diff.getModifiedEditor().layout();
+      });
     },
   },
   watch: {
-    theme() {
+    theme(v) {
       this.stdout = "";
+      this.clearMarkers();
+    },
+    diff(v) {
+      if (v) this.debug_width = 0;
+      this.$nextTick(() => {
+        this.editor.layout();
+        this.$refs.manoco_diff.getEditor().layout();
+        this.$refs.manoco_diff.getModifiedEditor().layout();
+      });
     },
   },
 };
@@ -822,7 +880,7 @@ export default {
   font-size: 14px !important;
 }
 .btn {
-  font-size: 18px;
+  font-size: 14px;
   cursor: pointer;
   border-left: 1px solid rgba(0, 0, 0, 0.1);
   transition: all 0.5s;
@@ -831,9 +889,9 @@ export default {
   background: rgba(0, 0, 0, 0.205);
 }
 .btn_settings {
-  height: 32px;
-  line-height: 32px;
-  width: 60px;
+  height: 28px;
+  line-height: 28px;
+  width: 50px;
   float: right;
   text-align: center;
 }
@@ -866,6 +924,13 @@ export default {
   line-height: 24px;
   padding-left: 5px;
   border-bottom: 1px solid rgba(144, 147, 153, 0.3);
+}
+
+.errorContentClassLight {
+  background: rgb(255 163 162);
+}
+.errorContentClassDark {
+  background: #4b1818;
 }
 /* 滚动条样式 */
 ::-webkit-scrollbar {
