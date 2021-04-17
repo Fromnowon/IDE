@@ -1,7 +1,5 @@
 # IDE
 
-![image](https://user-images.githubusercontent.com/2792725/114566397-ce05fa80-9ca4-11eb-9ca8-8e183e5d6ddd.png)
-
 Monaco Editor二次开发
 
 1、一般界面
