@@ -12,8 +12,13 @@ npm run build
 
 上课用，可直接运行***c++、python***代码，方便调试
 
+![image](https://raw.githubusercontent.com/Fromnowon/IDE/monaco/pic/ide.gif)
+
+
 ****
-Ace Editor，在线IDE常用的编辑器
+代码分两个分支：
+
+***main***:Ace Editor，在线IDE常用的编辑器
 
 http://ide.zhaozihang.com
 
@@ -22,7 +27,7 @@ http://ide.zhaozihang.com
 ![image](https://user-images.githubusercontent.com/2792725/115114666-14b86500-9fc3-11eb-881e-b24b3b8b0fc5.png)
 
 
-Monaco Editor，VSCode的编辑器
+***monaco***:Monaco Editor，VSCode的编辑器
 
 http://ide2.zhaozihang.com
 
