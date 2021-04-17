@@ -81,7 +81,6 @@
               :options="options"
               @editorWillMount="manocoHandler2"
               @editorDidMount="manocoHandler"
-              @change="changeHandle"
             />
             <MonacoEditor
               ref="manoco_diff"
@@ -127,7 +126,7 @@
                   tabSize: 4,
                 }"
                 :fontSize="14"
-                :lang="mode"
+                lang="text"
                 :theme="theme"
                 @init="ace_editorInit"
                 @onChange="stdinChange"
@@ -151,7 +150,7 @@
                 v-if="stdout"
                 :theme="theme"
                 :content="stdout"
-                lang="python"
+                lang="text"
                 :gutter="false"
                 :height="debug_output_height + 'px' - 5"
                 style="overflow: auto; padding: 5px"
@@ -291,6 +290,7 @@ export default {
       hints: [], // 关键词
       fun_hints_key: [], // 函数名
       fun_hints: {}, // 函数补全
+      decorations: [], // 错误行标记
       ondebug: false,
       tip: null,
       barHeight: 28,
@@ -329,8 +329,8 @@ export default {
     },
     ace_editorInit(editor) {
       require("brace/ext/language_tools");
-      require("brace/ext/searchbox");
       require("brace/mode/c_cpp");
+      require("brace/mode/text");
       require("brace/mode/python");
       require("brace/theme/chaos.js");
       require("brace/theme/textmate.js");
@@ -339,17 +339,6 @@ export default {
     },
     changeHandle2(v, e) {
       this.code = v;
-    },
-    changeHandle() {
-      // 清除错误标记
-      const lineNumber = this.editor.getPosition().lineNumber;
-      const model = this.editor.getModel();
-      window.monaco.editor.setModelMarkers(model, lineNumber + "", []);
-
-      const drs = this.editor.getLineDecorations(lineNumber);
-      drs.forEach((item) => {
-        model.deltaDecorations([item.id], []);
-      });
     },
     manocoHandler3() {
       this.code_ = this.code;
@@ -393,18 +382,26 @@ export default {
           ], // 绑定快捷键
           contextMenuGroupId: "1_modification", // 所属菜单的分组
           run: () => {
-            this.code = js_beautify(editor.getValue(), {
+            this.code = js_beautify(this.code, {
               indent_size: 4,
-              brace_style: "preserve-inline",
+              brace_style: "collapse,preserve-inline",
               space_before_conditional: true,
+              max_preserve_newlines: 2,
             });
+          }, // 点击后执行的操作
+        },
+        {
+          id: "3", // 菜单项 id
+          label: "Clear Markers", // 菜单项名称
+          contextMenuGroupId: "1_modification", // 所属菜单的分组
+          run: () => {
+            this.clearMarkers();
           }, // 点击后执行的操作
         },
       ];
       for (let i = 0; i < arr.length; i++) editor.addAction(arr[i]);
 
       // 请求数据
-
       axios
         .get("http://106.52.130.81/lib/ide.json?" + Date.now())
         .then((res) => {
@@ -419,6 +416,20 @@ export default {
             this.loadingInstance.close();
           });
         });
+
+      // 清除错误标记
+      editor.onKeyDown((e) => {
+        const startLineNumber = this.editor.getSelection().startLineNumber;
+        const endLineNumber = this.editor.getSelection().endLineNumber;
+        const model = this.editor.getModel();
+
+        const arr = model.getLinesDecorations(startLineNumber, endLineNumber);
+        arr.map((ds) => {
+          if (this.decorations.includes(ds.id)) {
+            model.deltaDecorations([ds.id], []);
+          }
+        });
+      });
     },
     initDrag() {
       const _this = this;
@@ -673,6 +684,7 @@ export default {
       if (this.ondebug) return;
       if (!this.debug_width) this.debug_width = 400;
 
+      this.clearMarkers();
       // 提交提示
       this.tip = this.$message({
         dangerouslyUseHTMLString: true,
@@ -725,6 +737,15 @@ export default {
               _this.token +
               "?base64_encoded=true"
           )
+          .catch((error) => {
+            console.log(error);
+            _this.ondebug = false;
+            _this.tip.close();
+            this.$alert("请求异常，服务器无响应", "错误", {
+              confirmButtonText: "确定",
+              type: "error",
+            });
+          })
           .then((response) => {
             let e = response.data;
             if (e.status.id != 1 && e.status.id != 2) {
@@ -734,7 +755,7 @@ export default {
                 // 正常运行
                 _this.stdout = Base64.decode(e.stdout || ""); // 程序执行成功并返回结果与信息
                 _this.stdout +=
-                  "\n程序消耗:\ntime: " +
+                  "\ntime: " +
                   parseFloat(e.time) * 1000 +
                   " ms\nmemory: " +
                   e.memory / 1000 +
@@ -766,9 +787,7 @@ export default {
     },
     getErr(r) {
       const arr = r.split("\n");
-      const codeLines = this.editor.getModel().getLineCount();
-      let err = [codeLines + 1]; // 每行错误合并到子数组
-      for (let i = 1; i <= codeLines; i++) err[i] = [];
+      this.decorations = [];
       arr.forEach((element, index) => {
         // 先验证main.cpp
         if (element.substr(0, 8) == "main.cpp") {
@@ -787,52 +806,44 @@ export default {
             // 到下个冒号之间为错误列号
             let col = str.substr(0, str.indexOf(":"));
             // 最后一个冒号到换行为错误信息
-            const info = str.substr(str.indexOf(":") + 1, str.length).trim();
-            const _err = {
-              startLineNumber: parseInt(row),
-              startColumn: parseInt(col),
-              endLineNumber: parseInt(row),
-              endColumn: parseInt(col) + parseInt(len),
-              message: info,
-              severity: window.monaco.MarkerSeverity.Error, // 提示的类型
-            };
-            err[parseInt(row)].push(_err);
-          }
-        }
-      });
-      const model = this.editor.getModel();
-      err.forEach((item, index) => {
-        if (item.length > 0) {
-          window.monaco.editor.setModelMarkers(model, index + "", item); // 添加错误标记
-          model.deltaDecorations(
-            // 添加错误行背景标记
-            [],
-            [
-              {
-                range: new monaco.Range(index, 1, index, 1),
-                options: {
-                  isWholeLine: true,
-                  className:
-                    this.theme == "textmate"
-                      ? "errorContentClassLight"
-                      : "errorContentClassDark",
+            // const info = str.substr(str.indexOf(":") + 1, str.length).trim();
+            let endCol = parseInt(col) + parseInt(len);
+            if (
+              endCol >
+              this.editor.getModel().getLineContent(parseInt(row)).length
+            )
+              endCol = this.editor.getModel().getLineContent(parseInt(row))
+                .length;
+            const id = this.editor.getModel().deltaDecorations(
+              // 添加错误行背景标记
+              [],
+              [
+                {
+                  range: new monaco.Range(
+                    parseInt(row),
+                    parseInt(col),
+                    parseInt(row),
+                    endCol
+                  ),
+                  options: {
+                    // isWholeLine: true,
+                    className:
+                      this.theme == "textmate"
+                        ? "errorContentClassLight"
+                        : "errorContentClassDark",
+                  },
                 },
-              },
-            ]
-          );
+              ]
+            );
+            this.decorations.push(id[0]);
+          }
         }
       });
     },
     clearMarkers() {
       // 提交时清除所有错误
       const model = this.editor.getModel();
-      const lines = model.getLineCount();
-      for (let i = 1; i <= lines; i++)
-        window.monaco.editor.setModelMarkers(model, i + "", []);
-      const drs = model.getAllDecorations();
-      drs.forEach((item) => {
-        model.deltaDecorations([item.id], []);
-      });
+      model.deltaDecorations(this.decorations, []);
     },
     resize() {
       this.height = document.documentElement.clientHeight - this.barHeight;
@@ -925,14 +936,15 @@ export default {
   font-size: 14px;
   line-height: 24px;
   padding-left: 5px;
-  border-bottom: 1px solid rgba(144, 147, 153, 0.3);
+  border-bottom: 1px solid rgba(144, 147, 153, 0.2);
 }
 
 .errorContentClassLight {
-  background: rgb(255 163 162);
+  background: rgba(255, 0, 0, 0.35);
 }
+
 .errorContentClassDark {
-  background: #4b1818;
+  background: #8a202085;
 }
 /* 滚动条样式 */
 ::-webkit-scrollbar {
