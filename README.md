@@ -2,7 +2,7 @@
  
 前端：```VUE + ElementUI```
 
-判题机：```judge0```
+后端：```judge0```
 
 ```
 npm i
@@ -10,18 +10,22 @@ npm run dev
 npm run build
 ```
 
-上课用，方便调试代码
+上课用，可直接运行***c++、python***代码，方便调试
 
 ****
-默认使用Ace Editor，泛用性良好
+Ace Editor，在线IDE常用的编辑器
 
-![pic](https://github.com/Fromnowon/IDE/blob/main/pic/ide.PNG)
+http://ide.zhaozihang.com
+
+```1、代码补全；2、主题更换；3、读取、保存文件```
+
+![image](https://user-images.githubusercontent.com/2792725/115114666-14b86500-9fc3-11eb-881e-b24b3b8b0fc5.png)
 
 
-monaco分支，使用微软Monaco Editor，体积庞大。纯粹想体验一下VScode在网页端的感觉，所以只用到了它 ~~10%~~  **20%** 的功能
-
-做好了错误提示！虽然用的不是词法分析，而是根据编译器返回的错误进行信息提取，但至少有了
+Monaco Editor，VScode的编辑器
 
 http://ide2.zhaozihang.com
 
-![image](https://user-images.githubusercontent.com/2792725/114566397-ce05fa80-9ca4-11eb-9ca8-8e183e5d6ddd.png)
+```1、代码补全；2、主题更换；3、错误标记；4、拆分窗口；5、读取、保存文件```
+
+![image](https://user-images.githubusercontent.com/2792725/115114499-5a286280-9fc2-11eb-8077-f2ce248f42e7.png)
