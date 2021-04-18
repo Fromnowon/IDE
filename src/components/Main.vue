@@ -1,5 +1,5 @@
 <template>
-  <div :class="'main ace-' + (theme == 'textmate' ? theme : 'chaos')">
+  <div :class="'main ' + (theme != 'vs' ? 'dark' : 'vs')">
     <el-container>
       <el-header
         :height="barHeight + 'px'"
@@ -35,26 +35,15 @@
               <i class="el-icon-warning-outline"></i>
             </div>
           </el-tooltip>
-          <el-tooltip
-            class="item"
-            effect="dark"
-            content="保存文文件到本地"
-            placement="bottom"
-          >
-            <div class="btn_settings btn" @click="saveToLocal">
-              <i class="el-icon-document-checked"></i>
+          <el-popover placement="top" width="160" trigger="hover">
+            <div style="text-align: center">
+              <el-button type="text" @click="read">打 开</el-button>
+              <el-button type="text" @click="saveToLocal">保 存</el-button>
             </div>
-          </el-tooltip>
-          <el-tooltip
-            class="item"
-            effect="dark"
-            content="打开本地文件"
-            placement="bottom"
-          >
-            <div class="btn_settings btn" @click="read">
-              <i class="el-icon-folder-opened"></i>
+            <div slot="reference" class="btn_settings btn">
+              <i class="el-icon-folder"></i>
             </div>
-          </el-tooltip>
+          </el-popover>
           <el-tooltip
             class="item"
             effect="dark"
@@ -76,23 +65,23 @@
               :style="{ height: height + 'px', width: '100%' }"
               ref="manoco"
               v-model="code"
-              :theme="theme == 'textmate' ? 'vs' : 'vs-dark'"
-              :language="mode == 'c_cpp' ? 'cpp' : 'python'"
+              :theme="theme"
+              :language="mode"
               :options="options"
-              @editorWillMount="manocoHandler2"
-              @editorDidMount="manocoHandler"
+              @editorWillMount="manocoWillMountHandler"
+              @editorDidMount="manocoMountHandler"
             />
             <MonacoEditor
               ref="manoco_diff"
               v-show="diff"
               :style="{ height: height + 'px', width: '100%' }"
-              :language="mode == 'c_cpp' ? 'cpp' : 'python'"
+              :language="mode"
               :options="options"
               :diffEditor="true"
               :value="code"
               :original="code_"
-              @editorDidMount="manocoHandler3"
-              @change="changeHandle2"
+              @editorDidMount="DiffMountHandler"
+              @change="diffChangeHandler"
             />
           </div>
         </el-main>
@@ -100,7 +89,7 @@
           :width="debug_width + 'px'"
           :style="{ width: debug_width + 'px' }"
         >
-          <el-container>
+          <el-container v-if="debug_width > 0">
             <div class="area_tip">
               Stdin
               <i
@@ -115,23 +104,32 @@
               style="border-bottom: 1px solid rgba(144, 147, 153, 0.3)"
               :height="height - barHeight - debug_output_height + 'px'"
             >
-              <VueAceEditor
-                width="100%"
-                :height="height - barHeight - debug_output_height + 'px'"
-                ref="stdin"
-                :options="{
-                  showLineNumbers: true,
-                  showGutter: true,
-                  printMargin: false,
-                  tabSize: 4,
+              <MonacoEditor
+                :style="{
+                  height: height - barHeight - debug_output_height + 'px',
+                  width: debug_width,
                 }"
-                :fontSize="14"
-                lang="text"
+                ref="stdin"
+                v-model="stdin"
                 :theme="theme"
-                @init="ace_editorInit"
-                @onChange="stdinChange"
-              >
-              </VueAceEditor>
+                :language="mode"
+                :options="{
+                  quickSuggestions: false,
+                  glyphMargin: false,
+                  folding: false,
+                  lineDecorationsWidth: 14,
+                  lineNumbersMinChars: 2,
+                  glyphMargin: false,
+                  overviewRulerBorder: false,
+                  minimap: {
+                    enabled: false,
+                  },
+                  scrollbar: {
+                    verticalScrollbarSize: 8,
+                    horizontalScrollbarSize: 8,
+                  },
+                }"
+              />
             </el-header>
             <div
               class="area_tip"
@@ -145,15 +143,39 @@
                 class="el-icon-delete"
               />
             </div>
-            <el-main :style="{ height: debug_output_height - 20 + 'px' }">
-              <VueStaticHighlight
-                v-if="stdout"
+            <el-main
+              :style="{
+                height: debug_output_height - 20 + 'px',
+                overflow: 'hidden',
+              }"
+            >
+              <MonacoEditor
+                :style="{
+                  height: debug_output_height - 20 + 'px',
+                  width: debug_width,
+                }"
+                ref="stdout"
+                v-model="stdout"
                 :theme="theme"
-                :content="stdout"
-                lang="text"
-                :gutter="false"
-                :height="debug_output_height + 'px' - 5"
-                style="overflow: auto; padding: 5px"
+                :language="mode"
+                :options="{
+                  lineNumbers: 'off',
+                  glyphMargin: false,
+                  folding: false,
+                  lineDecorationsWidth: 10,
+                  lineNumbersMinChars: 0,
+                  wordWrap: true,
+                  readOnly: true,
+                  glyphMargin: false,
+                  overviewRulerBorder: false,
+                  minimap: {
+                    enabled: false,
+                  },
+                  scrollbar: {
+                    verticalScrollbarSize: 8,
+                    horizontalScrollbarSize: 8,
+                  },
+                }"
               />
             </el-main>
           </el-container>
@@ -171,7 +193,7 @@
           <el-col :span="12"
             ><p>语言</p>
             <el-select v-model="mode" size="small" style="max-width: 120pt">
-              <el-option :key="0" :label="'C++ (GCC 9.2.0)'" :value="'c_cpp'">
+              <el-option :key="0" :label="'C++ (GCC 9.2.0)'" :value="'cpp'">
               </el-option>
               <el-option :key="1" :label="'Python (3.8.1)'" :value="'python'">
               </el-option> </el-select
@@ -202,8 +224,8 @@
               placeholder="请选择"
               style="max-width: 120pt"
             >
-              <el-option key="1" label="浅色" value="textmate"> </el-option>
-              <el-option key="2" label="深色" value="chaos"> </el-option>
+              <el-option key="1" label="浅色" value="vs"> </el-option>
+              <el-option key="2" label="深色" value="vs-dark"> </el-option>
             </el-select>
           </el-col>
         </el-row>
@@ -257,8 +279,7 @@
 
 <script>
 import axios from "axios";
-import moment, { fn } from "moment";
-import { VueAceEditor, VueStaticHighlight } from "vue2x-ace-editor";
+import moment from "moment";
 import { js_beautify } from "js-beautify";
 import MonacoEditor from "vue-monaco";
 const Base64 = require("js-base64").Base64;
@@ -267,8 +288,6 @@ import { Loading } from "element-ui";
 export default {
   name: "Main",
   components: {
-    VueAceEditor,
-    VueStaticHighlight,
     MonacoEditor,
   },
   data() {
@@ -277,15 +296,14 @@ export default {
       editor_diff: "",
       width: null,
       height: null,
-      // theme: "kr_theme",
-      theme: "textmate",
+      theme: "vs",
       code: "",
       code_: "",
       diff: false,
       stdin: "",
-      stdout: null,
+      stdout: "",
       token: "",
-      mode: "c_cpp",
+      mode: "cpp",
       server: "",
       hints: [], // 关键词
       fun_hints_key: [], // 函数名
@@ -326,27 +344,19 @@ export default {
       };
       this.dragLoadFileInit();
       this.initDrag();
-    },
-    ace_editorInit(editor) {
-      require("brace/ext/language_tools");
-      require("brace/mode/c_cpp");
-      require("brace/mode/text");
-      require("brace/mode/python");
-      require("brace/theme/chaos.js");
-      require("brace/theme/textmate.js");
       // 初始化
       this.loadConf();
     },
-    changeHandle2(v, e) {
+    diffChangeHandler(v, e) {
       this.code = v;
     },
-    manocoHandler3() {
+    DiffMountHandler() {
       this.code_ = this.code;
     },
-    manocoHandler2(manoco) {
+    manocoWillMountHandler(monaco) {
       window.monaco = monaco;
     },
-    manocoHandler(editor) {
+    manocoMountHandler(editor) {
       this.editor = editor;
       // 全局绑定f9
       window.addEventListener("keydown", (e) => {
@@ -471,9 +481,12 @@ export default {
           }
 
           // 移动时重新得到物体的距离，解决拖动时出现晃动现象
+          const minWidth = 100;
           _this.debug_width =
             _this.width - disX - divX - 20 > 1000
               ? 1000
+              : _this.width - disX - divX - 20 <= minWidth
+              ? minWidth
               : _this.width - disX - divX - 20;
           let n_height = _this.height - disY - divY + _this.barHeight + 10;
           _this.debug_output_height =
@@ -484,7 +497,7 @@ export default {
               : n_height;
           _this.resize();
           document.onmouseup = function () {
-            if (_this.debug_width <= 100) {
+            if (_this.debug_width <= minWidth) {
               _this.debug_width = 0;
               _this.resize();
             }
@@ -585,19 +598,9 @@ export default {
       });
     },
     clearStdin() {
-      this.$refs.stdin.setValue("");
+      this.stdin = "";
     },
-    stdinChange(editor) {
-      this.stdin = editor.getValue();
-    },
-    loadConf() {
-      // 读取信息
-      let code = localStorage.getItem("ace_code");
-      if (code) this.code = Base64.decode(code);
-      this.options.fontSize =
-        parseInt(localStorage.getItem("ace_fontsize")) || 18;
-      this.mode = localStorage.getItem("ace_lang") || "c_cpp";
-    },
+
     saveToLocal() {
       //定义文件内容，类型必须为Blob 否则createObjectURL会报错
       let content = new Blob([this.code]);
@@ -611,7 +614,7 @@ export default {
       let fname =
         "code-" +
         moment(new Date()).format("YYYY-MM-DD HH:mm:ss") +
-        (this.mode == "c_cpp" ? ".cpp" : ".py");
+        (this.mode == "cpp" ? ".cpp" : ".py");
       el.download = fname;
       //必须点击否则不会下载
       el.click();
@@ -665,13 +668,23 @@ export default {
     },
     saveCode() {
       let code = Base64.encode(this.code);
-      localStorage.setItem("ace_code", code); // 保存代码
+      localStorage.setItem("zzh_code", code); // 保存代码
     },
     save() {
       this.saveCode();
-      localStorage.setItem("ace_fontsize", this.options.fontSize); // 保存字号
-      localStorage.setItem("ace_lang", this.mode); // 保存语言
+      localStorage.setItem("zzh_fontsize", this.options.fontSize); // 保存字号
+      localStorage.setItem("zzh_stdin", this.stdin); // 保存字号
+      localStorage.setItem("zzh_lang", this.mode); // 保存语言
       console.log("saved");
+    },
+    loadConf() {
+      // 读取信息
+      const code = localStorage.getItem("zzh_code");
+      if (code) this.code = Base64.decode(code);
+      this.stdin = localStorage.getItem("zzh_stdin") || "";
+      this.options.fontSize =
+        parseInt(localStorage.getItem("zzh_fontsize")) || 18;
+      this.mode = localStorage.getItem("zzh_lang") || "cpp";
     },
     go() {
       window.open("https://github.com/Fromnowon/IDE");
@@ -697,9 +710,8 @@ export default {
 
       const _this = this;
       _this.ondebug = true;
-      _this.stdout = null;
+      _this.stdout = "";
       if (_this.stdin[_this.stdin.length - 1] != "\n") _this.stdin += "\n";
-
       axios
         .post(
           "http://" +
@@ -707,7 +719,7 @@ export default {
             "/submissions/?base64_encoded=true&wait=false",
           {
             source_code: code,
-            language_id: _this.mode == "c_cpp" ? 54 : 71, // cpp python
+            language_id: _this.mode == "cpp" ? 54 : 71, // cpp python
             stdin: Base64.encode(_this.stdin),
           },
           { timeout: 5000 }
@@ -755,7 +767,7 @@ export default {
                 // 正常运行
                 _this.stdout = Base64.decode(e.stdout || ""); // 程序执行成功并返回结果与信息
                 _this.stdout +=
-                  "\ntime: " +
+                  "\n\ntime: " +
                   parseFloat(e.time) * 1000 +
                   " ms\nmemory: " +
                   e.memory / 1000 +
@@ -770,7 +782,7 @@ export default {
                   // 编译错误
                   const info = Base64.decode(e.compile_output);
                   _this.stdout = info;
-                  if (_this.mode == "c_cpp") _this.getErr(info);
+                  if (_this.mode == "cpp") _this.getErr(info);
                 } else if (e.status.id == 11 || e.status.id == 5)
                   // 段错误或超时
                   // runtime error
@@ -810,7 +822,8 @@ export default {
             let endCol = parseInt(col) + parseInt(len);
             if (
               endCol >
-              this.editor.getModel().getLineContent(parseInt(row)).length
+                this.editor.getModel().getLineContent(parseInt(row)).length &&
+              col == endCol
             )
               endCol = this.editor.getModel().getLineContent(parseInt(row))
                 .length;
@@ -828,7 +841,7 @@ export default {
                   options: {
                     // isWholeLine: true,
                     className:
-                      this.theme == "textmate"
+                      this.theme == "vs"
                         ? "errorContentClassLight"
                         : "errorContentClassDark",
                   },
@@ -852,12 +865,15 @@ export default {
         this.editor.layout();
         this.$refs.manoco_diff.getEditor().layout();
         this.$refs.manoco_diff.getModifiedEditor().layout();
+        try {
+          this.$refs.stdin.getEditor().layout();
+          this.$refs.stdout.getEditor().layout();
+        } catch (error) {}
       });
     },
   },
   watch: {
     theme(v) {
-      this.stdout = "";
       this.clearMarkers();
     },
     diff(v) {
@@ -878,6 +894,10 @@ export default {
   width: 100%;
   height: 100%;
 }
+.dark {
+  background: #1e1e1e;
+  color: white;
+}
 .editor_div {
   overflow: hidden;
   border-right: 0.5px solid rgba(144, 147, 153, 0.3);
@@ -888,9 +908,6 @@ export default {
 .bar {
   padding: 0 0 0 10px;
   font-size: 10px;
-}
-.ace_static_highlight {
-  font-size: 14px !important;
 }
 .btn {
   font-size: 14px;
@@ -932,6 +949,11 @@ export default {
   color: rgba(155, 155, 155, 0.5);
   z-index: 999;
 }
+.stdout {
+  font-size: 14px;
+  padding: 10px;
+  white-space: pre-wrap;
+}
 .area_tip {
   font-size: 14px;
   line-height: 24px;
@@ -942,31 +964,7 @@ export default {
 .errorContentClassLight {
   background: rgba(255, 0, 0, 0.35);
 }
-
 .errorContentClassDark {
   background: #8a202085;
-}
-/* 滚动条样式 */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-/* 滑轨 */
-::-webkit-scrollbar-track {
-  -webkit-box-shadow: inset 0 0 3px rgba(155, 155, 155, 0.3);
-  -webkit-border-radius: 3px;
-  border-radius: 3px;
-}
-/* Handle */
-::-webkit-scrollbar-thumb {
-  -webkit-border-radius: 3px;
-  border-radius: 3px;
-  background: rgba(144, 147, 153, 0.3);
-}
-::-webkit-scrollbar-thumb:window-inactive {
-  background: rgba(144, 147, 153, 0.5);
-}
-::-webkit-scrollbar-thumb:hover {
-  background-color: #777;
 }
 </style>
