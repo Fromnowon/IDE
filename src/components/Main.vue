@@ -698,7 +698,7 @@ export default {
       const _this = this;
       _this.ondebug = true;
       _this.stdout = null;
-      _this.stdin = _this.stdin;
+      if (_this.stdin[_this.stdin.length - 1] != "\n") _this.stdin += "\n";
 
       axios
         .post(
