@@ -16,8 +16,7 @@
     "js-beautify": "^1.13.5",
     "moment": "^2.29.1",
     "vue": "^2.5.2",
-    "vue-monaco": "^1.2.2",
-    "vue2x-ace-editor": "^0.1.3"
+    "vue-monaco": "^1.2.2"
   },
   "devDependencies": {
     "autoprefixer": "^7.1.2",

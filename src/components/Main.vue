@@ -9,6 +9,23 @@
           class="bar"
           :style="{ height: barHeight + 'px', lineHeight: barHeight + 'px' }"
         >
+          <div style="float: left; font-size: 13px" v-if="formated">
+            <span>代码已格式化</span>
+            <i
+              class="el-icon-check"
+              title="确认"
+              style="margin-left: 10px; color: #67c23a; cursor: pointer"
+              @click="(formated = false), clearTimeout_(formatTip)"
+            ></i>
+            <i
+              class="el-icon-refresh-left"
+              title="撤销"
+              style="margin-left: 10px; color: #f56c6c; cursor: pointer"
+              @click="
+                (formated = false), (code = code__), clearTimeout_(formatTip)
+              "
+            ></i>
+          </div>
           <el-tooltip
             class="item"
             effect="dark"
@@ -89,7 +106,7 @@
           :width="debug_width + 'px'"
           :style="{ width: debug_width + 'px' }"
         >
-          <el-container v-if="debug_width > 0">
+          <el-container>
             <div class="area_tip">
               Stdin
               <i
@@ -104,32 +121,15 @@
               style="border-bottom: 1px solid rgba(144, 147, 153, 0.3)"
               :height="height - barHeight - debug_output_height + 'px'"
             >
-              <MonacoEditor
+              <el-input
                 :style="{
-                  height: height - barHeight - debug_output_height + 'px',
-                  width: debug_width,
+                  overflow: 'auto',
                 }"
-                ref="stdin"
+                type="textarea"
+                resize="none"
                 v-model="stdin"
-                :theme="theme"
-                :language="mode"
-                :options="{
-                  quickSuggestions: false,
-                  glyphMargin: false,
-                  folding: false,
-                  lineDecorationsWidth: 14,
-                  lineNumbersMinChars: 2,
-                  glyphMargin: false,
-                  overviewRulerBorder: false,
-                  minimap: {
-                    enabled: false,
-                  },
-                  scrollbar: {
-                    verticalScrollbarSize: 8,
-                    horizontalScrollbarSize: 8,
-                  },
-                }"
-              />
+              >
+              </el-input>
             </el-header>
             <div
               class="area_tip"
@@ -150,9 +150,11 @@
               }"
             >
               <MonacoEditor
+                v-if="debug_width > 0"
                 :style="{
                   height: debug_output_height - 20 + 'px',
                   width: debug_width,
+                  padding: '8px 0',
                 }"
                 ref="stdout"
                 v-model="stdout"
@@ -162,7 +164,7 @@
                   lineNumbers: 'off',
                   glyphMargin: false,
                   folding: false,
-                  lineDecorationsWidth: 10,
+                  lineDecorationsWidth: 14,
                   lineNumbersMinChars: 0,
                   wordWrap: true,
                   readOnly: true,
@@ -298,6 +300,7 @@ export default {
       height: null,
       theme: "vs",
       code: "",
+      code__: "",
       code_: "",
       diff: false,
       stdin: "",
@@ -317,6 +320,8 @@ export default {
       helpDialogVisible: false,
       debug_width: 400,
       debug_output_height: 600,
+      formated: false,
+      formatTip: null,
       options: {
         fontSize: 18,
         tabSize: 4,
@@ -389,16 +394,23 @@ export default {
             window.monaco.KeyMod.Alt |
               window.monaco.KeyMod.Shift |
               window.monaco.KeyCode.KEY_F,
-          ], // 绑定快捷键
+          ],
           contextMenuGroupId: "1_modification", // 所属菜单的分组
           run: () => {
+            clearTimeout(this.formatTip); // 可能在倒计时内多次格式化
+            this.code__ = this.code;
+            this.formated = true;
             this.code = js_beautify(this.code, {
               indent_size: 4,
               brace_style: "collapse,preserve-inline",
               space_before_conditional: true,
               max_preserve_newlines: 2,
+              wrap_attributes: "auto",
             });
-          }, // 点击后执行的操作
+            this.formatTip = setTimeout(() => {
+              this.formated = false;
+            }, 30000);
+          },
         },
         {
           id: "3", // 菜单项 id
@@ -406,7 +418,7 @@ export default {
           contextMenuGroupId: "1_modification", // 所属菜单的分组
           run: () => {
             this.clearMarkers();
-          }, // 点击后执行的操作
+          },
         },
       ];
       for (let i = 0; i < arr.length; i++) editor.addAction(arr[i]);
@@ -440,6 +452,9 @@ export default {
           }
         });
       });
+    },
+    clearTimeout_(ins) {
+      clearTimeout(ins);
     },
     initDrag() {
       const _this = this;
@@ -711,7 +726,8 @@ export default {
       const _this = this;
       _this.ondebug = true;
       _this.stdout = "";
-      if (_this.stdin[_this.stdin.length - 1] != "\n") _this.stdin += "\n";
+      let stdin = _this.stdin;
+      if (stdin[stdin.length - 1] != "\n") stdin += "\n";
       axios
         .post(
           "http://" +
@@ -720,7 +736,7 @@ export default {
           {
             source_code: code,
             language_id: _this.mode == "cpp" ? 54 : 71, // cpp python
-            stdin: Base64.encode(_this.stdin),
+            stdin: Base64.encode(stdin),
           },
           { timeout: 5000 }
         )
@@ -822,11 +838,9 @@ export default {
             let endCol = parseInt(col) + parseInt(len);
             if (
               endCol >
-                this.editor.getModel().getLineContent(parseInt(row)).length &&
-              col == endCol
+              this.editor.getModel().getLineContent(parseInt(row)).length
             )
-              endCol = this.editor.getModel().getLineContent(parseInt(row))
-                .length;
+              col = 0;
             const id = this.editor.getModel().deltaDecorations(
               // 添加错误行背景标记
               [],
@@ -866,7 +880,8 @@ export default {
         this.$refs.manoco_diff.getEditor().layout();
         this.$refs.manoco_diff.getModifiedEditor().layout();
         try {
-          this.$refs.stdin.getEditor().layout();
+          document.querySelector(".el-textarea__inner").style.height =
+            this.height - this.barHeight - this.debug_output_height + "px";
           this.$refs.stdout.getEditor().layout();
         } catch (error) {}
       });
@@ -875,6 +890,14 @@ export default {
   watch: {
     theme(v) {
       this.clearMarkers();
+      let stdin_el = document.querySelector(".el-textarea__inner");
+      if (v != "vs") {
+        stdin_el.style.background = "#1e1e1e";
+        stdin_el.style.color = "white";
+      } else {
+        stdin_el.style.background = "#fffffe";
+        stdin_el.style.color = "black";
+      }
     },
     diff(v) {
       if (v) this.debug_width = 0;
@@ -904,6 +927,10 @@ export default {
 }
 .debug {
   padding: 20px;
+}
+.el-textarea__inner {
+  border: none !important;
+  border-radius: 0 !important;
 }
 .bar {
   padding: 0 0 0 10px;
@@ -966,5 +993,24 @@ export default {
 }
 .errorContentClassDark {
   background: #8a202085;
+}
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+/* 滑轨 */
+::-webkit-scrollbar-track {
+  -webkit-box-shadow: inset 0 0 1px rgba(99, 99, 99, 0.2);
+}
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: rgba(206, 206, 206, 0.3);
+}
+::-webkit-scrollbar-thumb:window-inactive {
+  background: rgba(144, 147, 153, 0.3);
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(119, 119, 119, 0.274);
 }
 </style>
