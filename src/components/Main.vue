@@ -9,69 +9,81 @@
           class="bar"
           :style="{ height: barHeight + 'px', lineHeight: barHeight + 'px' }"
         >
-          <div style="float: left; font-size: 13px" v-if="formated">
-            <span>代码已格式化</span>
-            <i
-              class="el-icon-check"
-              title="确认"
-              style="margin-left: 10px; color: #67c23a; cursor: pointer"
-              @click="(formated = false), clearTimeout_(formatTip)"
-            ></i>
-            <i
-              class="el-icon-refresh-left"
-              title="撤销"
-              style="margin-left: 10px; color: #f56c6c; cursor: pointer"
-              @click="
-                (formated = false), (code = code__), clearTimeout_(formatTip)
-              "
-            ></i>
+          <div
+            :style="{
+              height: barHeight + 'px',
+              lineHeight: barHeight + 'px',
+              float: 'left',
+            }"
+            class="items format_tip_div"
+          >
+            <div class="format_tip" v-if="formated">
+              <span>代码已格式化</span>
+              <i
+                class="el-icon-check"
+                title="确认"
+                style="margin-left: 10px; color: #67c23a; cursor: pointer"
+                @click="(formated = false), clearTimeout_(formatTip)"
+              ></i>
+              <i
+                class="el-icon-refresh-left"
+                title="撤销"
+                style="margin-left: 10px; color: #f56c6c; cursor: pointer"
+                @click="
+                  (formated = false), (code = code__), clearTimeout_(formatTip)
+                "
+              ></i>
+            </div>
           </div>
-          <el-tooltip
-            class="item"
-            effect="dark"
-            content="设置"
-            placement="bottom"
-          >
-            <div
-              class="btn_settings btn"
-              @click="settingsDialogVisible = !settingsDialogVisible"
+          <div class="items" :style="{ float: 'right' }">
+            <el-tooltip
+              class="item"
+              effect="dark"
+              content="运行代码"
+              placement="bottom"
             >
-              <i class="el-icon-setting"></i>
-            </div>
-          </el-tooltip>
-          <el-tooltip
-            class="item"
-            effect="dark"
-            content="帮助信息"
-            placement="bottom"
-          >
-            <div
-              class="btn_settings btn"
-              @click="helpDialogVisible = !helpDialogVisible"
+              <div class="btn_settings btn run" @click="debug">
+                <i v-if="ondebug" class="el-icon-loading"></i>
+                <i v-else class="el-icon-caret-right"></i>
+              </div>
+            </el-tooltip>
+            <el-popover placement="top" width="160" trigger="click">
+              <div style="text-align: center">
+                <el-button type="text" @click="read">打 开</el-button>
+                <el-button type="text" @click="saveToLocal">保 存</el-button>
+              </div>
+              <div slot="reference" class="btn_settings btn">
+                <i class="el-icon-folder"></i>
+              </div>
+            </el-popover>
+            <el-tooltip
+              class="item"
+              effect="dark"
+              content="帮助信息"
+              placement="bottom"
             >
-              <i class="el-icon-warning-outline"></i>
-            </div>
-          </el-tooltip>
-          <el-popover placement="top" width="160" trigger="hover">
-            <div style="text-align: center">
-              <el-button type="text" @click="read">打 开</el-button>
-              <el-button type="text" @click="saveToLocal">保 存</el-button>
-            </div>
-            <div slot="reference" class="btn_settings btn">
-              <i class="el-icon-folder"></i>
-            </div>
-          </el-popover>
-          <el-tooltip
-            class="item"
-            effect="dark"
-            content="运行代码"
-            placement="bottom"
-          >
-            <div class="btn_settings btn run" @click="debug">
-              <i v-if="ondebug" class="el-icon-loading"></i>
-              <i v-else class="el-icon-caret-right"></i>
-            </div>
-          </el-tooltip>
+              <div
+                class="btn_settings btn"
+                @click="helpDialogVisible = !helpDialogVisible"
+              >
+                <i class="el-icon-warning-outline"></i>
+              </div>
+            </el-tooltip>
+
+            <el-tooltip
+              class="item"
+              effect="dark"
+              content="设置"
+              placement="bottom"
+            >
+              <div
+                class="btn_settings btn"
+                @click="settingsDialogVisible = !settingsDialogVisible"
+              >
+                <i class="el-icon-setting"></i>
+              </div>
+            </el-tooltip>
+          </div>
         </div>
       </el-header>
       <el-container>
@@ -122,12 +134,14 @@
               :height="height - barHeight - debug_output_height + 'px'"
             >
               <el-input
+                spellcheck="false"
                 :style="{
                   overflow: 'auto',
                 }"
                 type="textarea"
                 resize="none"
                 v-model="stdin"
+                @focus="autoSelectStdin"
               >
               </el-input>
             </el-header>
@@ -314,7 +328,7 @@ export default {
       decorations: [], // 错误行标记
       ondebug: false,
       tip: null,
-      barHeight: 28,
+      barHeight: 32,
       loadingInstance: null,
       settingsDialogVisible: false,
       helpDialogVisible: false,
@@ -615,7 +629,9 @@ export default {
     clearStdin() {
       this.stdin = "";
     },
-
+    autoSelectStdin(Event) { // stdin获取焦点自动全选
+      Event.target.select();
+    },
     saveToLocal() {
       //定义文件内容，类型必须为Blob 否则createObjectURL会报错
       let content = new Blob([this.code]);
@@ -939,22 +955,42 @@ export default {
 .btn {
   font-size: 14px;
   cursor: pointer;
-  border-left: 1px solid rgba(0, 0, 0, 0.1);
   transition: all 0.5s;
+  border-radius: 3px;
 }
 .btn:hover {
   background: rgba(0, 0, 0, 0.205);
+}
+.items {
+  width: 250px;
+  position: relative;
+  text-align: right;
 }
 .btn_settings {
   height: 28px;
   line-height: 28px;
   width: 50px;
-  float: right;
+  text-align: center;
+  display: inline-block;
+}
+.format_tip_div {
+  display: flex;
+  align-items: center;
+  width: 150px;
+}
+.format_tip {
+  font-size: 12px;
+  padding: 0 8px;
+  background-color: #fdf6ec;
+  border-radius: 20px;
+  line-height: 28px;
+  height: 28px;
+  width: 200px;
   text-align: center;
 }
 .run {
   background: #67c23a;
-  width: 80px;
+  width: 60px;
   color: white;
   border: none;
 }
