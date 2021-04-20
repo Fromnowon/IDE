@@ -9,32 +9,42 @@
           class="bar"
           :style="{ height: barHeight + 'px', lineHeight: barHeight + 'px' }"
         >
-          <div
-            :style="{
-              height: barHeight + 'px',
-              lineHeight: barHeight + 'px',
-              float: 'left',
-            }"
-            class="items format_tip_div"
-          >
-            <div class="format_tip" v-if="formated">
-              <span>代码已格式化</span>
-              <i
-                class="el-icon-check"
-                title="确认"
-                style="margin-left: 10px; color: #67c23a; cursor: pointer"
-                @click="(formated = false), clearTimeout_(formatTip)"
-              ></i>
-              <i
-                class="el-icon-refresh-left"
-                title="撤销"
-                style="margin-left: 10px; color: #f56c6c; cursor: pointer"
-                @click="
-                  (formated = false), (code = code__), clearTimeout_(formatTip)
-                "
-              ></i>
+          <transition name="el-fade-in-linear">
+            <div
+              v-show="formated"
+              :style="{
+                height: barHeight + 'px',
+                lineHeight: barHeight + 'px',
+                float: 'left',
+              }"
+              class="items format_tip_div"
+            >
+              <div
+                :class="{
+                  format_tip: theme == 'vs',
+                  format_tip_dark: theme != 'vs',
+                }"
+              >
+                <span>格式化完成，请确认：</span>
+                <i
+                  class="el-icon-check"
+                  title="确认"
+                  style="margin-left: 5px; color: #67c23a; cursor: pointer"
+                  @click="(formated = false), clearTimeout_(formatTip)"
+                ></i>
+                <i
+                  class="el-icon-refresh-left"
+                  title="撤销"
+                  style="margin-left: 10px; color: #f56c6c; cursor: pointer"
+                  @click="
+                    (formated = false),
+                      (code = code__),
+                      clearTimeout_(formatTip)
+                  "
+                ></i>
+              </div>
             </div>
-          </div>
+          </transition>
           <div class="items" :style="{ float: 'right' }">
             <el-tooltip
               class="item"
@@ -629,7 +639,8 @@ export default {
     clearStdin() {
       this.stdin = "";
     },
-    autoSelectStdin(Event) { // stdin获取焦点自动全选
+    autoSelectStdin(Event) {
+      // stdin获取焦点自动全选
       Event.target.select();
     },
     saveToLocal() {
@@ -706,6 +717,8 @@ export default {
       localStorage.setItem("zzh_fontsize", this.options.fontSize); // 保存字号
       localStorage.setItem("zzh_stdin", this.stdin); // 保存字号
       localStorage.setItem("zzh_lang", this.mode); // 保存语言
+      localStorage.setItem("zzh_theme", this.theme); // 保存主题
+      localStorage.setItem("zzh_debug_width", this.debug_width); // 保存布局
       console.log("saved");
     },
     loadConf() {
@@ -716,6 +729,11 @@ export default {
       this.options.fontSize =
         parseInt(localStorage.getItem("zzh_fontsize")) || 18;
       this.mode = localStorage.getItem("zzh_lang") || "cpp";
+      this.$nextTick(() => {
+        this.theme = localStorage.getItem("zzh_theme") || "vs";
+      });
+      const d = localStorage.getItem("zzh_debug_width");
+      if (d && d != 'NaN') this.debug_width = parseInt(d);
     },
     go() {
       window.open("https://github.com/Fromnowon/IDE");
@@ -949,7 +967,6 @@ export default {
   border-radius: 0 !important;
 }
 .bar {
-  padding: 0 0 0 10px;
   font-size: 10px;
 }
 .btn {
@@ -976,16 +993,22 @@ export default {
 .format_tip_div {
   display: flex;
   align-items: center;
-  width: 150px;
+  width: 200px;
 }
 .format_tip {
-  font-size: 12px;
-  padding: 0 8px;
-  background-color: #fdf6ec;
-  border-radius: 20px;
-  line-height: 28px;
-  height: 28px;
-  width: 200px;
+  font-size: 13px;
+  color: black;
+  line-height: 32px;
+  height: 32px;
+  width: 250px;
+  text-align: center;
+}
+.format_tip_dark {
+  font-size: 13px;
+  color: white;
+  line-height: 32px;
+  height: 32px;
+  width: 250px;
   text-align: center;
 }
 .run {
