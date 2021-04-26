@@ -228,7 +228,7 @@
             <p>
               服务器IP<i
                 style="margin-left: 10px; cursor: pointer; color: #e6a23c"
-                @click="server = default_server"
+                @click="server_judger = default_server"
                 title="重置"
                 class="el-icon-refresh-left"
               />
@@ -236,7 +236,7 @@
             <el-input
               ref="server"
               placeholder="请输入内容"
-              v-model="server"
+              v-model="server_judger"
               size="small"
             >
             </el-input>
@@ -331,7 +331,9 @@ export default {
       stdout: "",
       token: "",
       mode: "cpp",
-      server: "",
+      server_judger: "",
+      server_lib: "lib.zzh.today",
+      default_server: "",
       hints: [], // 关键词
       fun_hints_key: [], // 函数名
       fun_hints: {}, // 函数补全
@@ -362,7 +364,12 @@ export default {
         //h5
         alert("IDE布局未适配移动端，请谨慎使用");
       }
-      this.loadingInstance = Loading.service({ fullscreen: true });
+      this.loadingInstance = Loading.service({
+        ock: true,
+        text: "初始化中",
+        fullscreen: true,
+        background: "rgba(0, 0, 0, 0.7)",
+      });
       this.resize();
       window.onresize = () => {
         this.editor.layout();
@@ -449,17 +456,19 @@ export default {
 
       // 请求数据
       axios
-        .get("http://106.52.130.81/lib/ide.json?" + Date.now())
+        .get("https://" + this.server_lib + "/ide.json?" + Date.now())
         .then((res) => {
           this.hints = res.data.keywords;
-          this.server = res.data.server;
+          this.server_judger = this.default_server = res.data.server;
           const functions = res.data.snippets;
           this.fun_hints = functions;
           for (let key in functions) this.fun_hints_key.push(key);
           this.initCompletion();
           this.$nextTick(() => {
             // 以服务的方式调用的 Loading 需要异步关闭
-            this.loadingInstance.close();
+            setTimeout(() => {
+              this.loadingInstance.close();
+            }, 1000);
           });
         });
 
@@ -733,7 +742,7 @@ export default {
         this.theme = localStorage.getItem("zzh_theme") || "vs";
       });
       const d = localStorage.getItem("zzh_debug_width");
-      if (d && d != 'NaN') this.debug_width = parseInt(d);
+      if (d && d != "NaN") this.debug_width = parseInt(d);
     },
     go() {
       window.open("https://github.com/Fromnowon/IDE");
@@ -764,9 +773,7 @@ export default {
       if (stdin[stdin.length - 1] != "\n") stdin += "\n";
       axios
         .post(
-          "http://" +
-            _this.server +
-            "/submissions/?base64_encoded=true&wait=false",
+          _this.server_judger + "/submissions/?base64_encoded=true&wait=false",
           {
             source_code: code,
             language_id: _this.mode == "cpp" ? 54 : 71, // cpp python
@@ -793,8 +800,7 @@ export default {
       setTimeout(() => {
         axios
           .get(
-            "http://" +
-              _this.server +
+            _this.server_judger +
               "/submissions/" +
               _this.token +
               "?base64_encoded=true"
