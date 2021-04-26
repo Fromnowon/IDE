@@ -364,12 +364,6 @@ export default {
         //h5
         alert("IDE布局未适配移动端，请谨慎使用");
       }
-      this.loadingInstance = Loading.service({
-        ock: true,
-        text: "初始化中",
-        fullscreen: true,
-        background: "rgba(0, 0, 0, 0.7)",
-      });
       this.resize();
       window.onresize = () => {
         this.editor.layout();
@@ -382,6 +376,14 @@ export default {
       this.initDrag();
       // 初始化
       this.loadConf();
+      this.$nextTick(() => {
+        this.loadingInstance = Loading.service({
+          ock: true,
+          text: "初始化中",
+          fullscreen: true,
+          background: this.theme == "vs" ? "" : "rgba(0, 0, 0, 0.7)",
+        });
+      });
     },
     diffChangeHandler(v, e) {
       this.code = v;
