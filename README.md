@@ -18,9 +18,7 @@ npm run build
 ****
 代码分两个分支：
 
-***main***:Ace Editor，在线IDE常用的编辑器。此版本不再更新，网址也被重定向到monaco版本了
-
-http://ide.zhaozihang.com
+***main***:Ace Editor，在线IDE常用的编辑器。***此版本不再更新***。
 
 ```1、代码补全；2、主题更换；3、读取、保存文件```
 
@@ -29,7 +27,7 @@ http://ide.zhaozihang.com
 
 ***monaco***:Monaco Editor，VSCode的编辑器
 
-http://ide2.zhaozihang.com
+http://ide.zzh.today
 
 https://github.com/Fromnowon/IDE/tree/monaco
 
