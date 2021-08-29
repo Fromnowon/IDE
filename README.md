@@ -18,7 +18,7 @@ npm run build
 ****
 代码分两个分支：
 
-***main***:Ace Editor，在线IDE常用的编辑器
+***main***:Ace Editor，在线IDE常用的编辑器。此版本不再更新，网址也被重定向到monaco版本了
 
 http://ide.zhaozihang.com
 
