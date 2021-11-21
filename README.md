@@ -2,6 +2,7 @@
 
 在线IDE，上课自用，支持C++和Python在线运行并返回结果，编辑器为 [Monaco Editor](https://github.com/microsoft/monaco-editor)，后端采用 [Judge0](https://github.com/judge0/judge0)。
 
+编辑器初始化时会从远程请求相关数据：[http://lib.zzh.today/ide.json](http://lib.zzh.today/ide.json)
 
 demo: https://ide.zzh.today/
 
