@@ -569,7 +569,7 @@ export default {
         //过滤特殊字符
         let _textUntilPosition = textUntilPosition
           .replace(/[\*\[\]@\$\(\)]/g, "")
-          .replace(/(\s+|\.|\#|\<|\>)/g, " "); // 以+ . # < >分割字符串
+          .replace(/(\s+|\.|\<|\>)/g, " "); // 以+ . # < >分割字符串
         //切割成数组
         let arr = _textUntilPosition.split(" ");
         //取当前输入值
@@ -838,14 +838,35 @@ export default {
                 });
                 if (e.status.id == 6) {
                   // 编译错误
-                  const info = Base64.decode(e.compile_output);
-                  _this.stdout = info;
-                  if (_this.mode == "cpp") _this.getErr(info);
-                } else if (e.status.id == 11 || e.status.id == 5)
-                  // 段错误或超时
-                  // runtime error
-                  _this.stdout = e.status.description;
-                else _this.stdout = Base64.decode(e.stderr);
+                  _this.stdout = Base64.decode(e.compile_output);
+                  if (_this.mode == "cpp") _this.getErr(_this.stdout);
+                } else if (e.status.id == 5) _this.stdout = e.status.description; // 超时
+                else if (e.status.id == 11 && _this.mode == "python") {
+                  // python运行错误特殊处理
+                  const info = Base64.decode(e.stderr);
+                  const key_info = info.split("\n")[0];
+                  const err_line = key_info.slice(key_info.lastIndexOf(' ') + 1);
+                  const id = this.editor.getModel().deltaDecorations( // 直接标记整行
+                    [],
+                    [
+                      {
+                        range: new monaco.Range(
+                          parseInt(err_line), 1,parseInt(err_line),1
+                        ),
+                        options: {
+                          isWholeLine: true,
+                          className:
+                            this.theme == "vs"
+                              ? "errorContentClassLight"
+                              : "errorContentClassDark",
+                        },
+                      },
+                    ]
+                  );
+                  this.decorations.push(id[0]);
+                  _this.stdout = Base64.decode(e.stderr)
+                }
+                else _this.stdout = Base64.decode(e.stderr); // 其他错误直接显示错误信息
               }
             } else {
               setTimeout(() => {
