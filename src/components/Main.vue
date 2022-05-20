@@ -147,6 +147,7 @@
                 spellcheck="false"
                 :style="{
                   overflow: 'auto',
+                  fontSize: stdinSize + 'px'
                 }"
                 type="textarea"
                 resize="none"
@@ -159,7 +160,8 @@
               class="area_tip"
               style="border-top: 1px solid rgba(144, 147, 153, 0.3)"
             >
-              Stdout<i
+              Stdout
+              <i
                 v-show="stdout"
                 style="margin-left: 10px; cursor: pointer; color: #e6a23c"
                 @click="stdout = ''"
@@ -185,6 +187,7 @@
                 :theme="theme"
                 :language="mode"
                 :options="{
+                  fontSize: stdoutSize,
                   lineNumbers: 'off',
                   glyphMargin: false,
                   folding: false,
@@ -255,8 +258,23 @@
             </el-select>
           </el-col>
         </el-row>
-        <p>字号</p>
-        <el-slider v-model="options.fontSize" :min="10" :max="30"></el-slider>
+        <div>
+          <br>
+          <span>代码编辑器字号</span>
+          <el-slider v-model="options.fontSize" :min="10" :max="50"></el-slider>
+          <br>
+          <el-row>
+            <el-col :span="10">
+              输入信息字号
+              <el-slider v-model="stdinSize" :min="10" :max="50"></el-slider>
+            </el-col>
+            <el-col :span="4">&nbsp;</el-col>
+            <el-col :span="10">
+              输出信息字号
+              <el-slider v-model="stdoutSize" :min="10" :max="50"></el-slider>
+            </el-col>
+          </el-row>
+        </div>
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="settingsDialogVisible = false">关 闭</el-button>
@@ -328,7 +346,9 @@ export default {
       code_: "",
       diff: false,
       stdin: "",
+      stdinSize: 16,
       stdout: "",
+      stdoutSize: 16,
       token: "",
       mode: "cpp",
       server_judger: "",
@@ -726,6 +746,8 @@ export default {
     save() {
       this.saveCode();
       localStorage.setItem("zzh_fontsize", this.options.fontSize); // 保存字号
+      localStorage.setItem("zzh_fontsize1", this.stdinSize); // 保存字号1
+      localStorage.setItem("zzh_fontsize2", this.stdoutSize); // 保存字号2
       localStorage.setItem("zzh_stdin", this.stdin); // 保存字号
       localStorage.setItem("zzh_lang", this.mode); // 保存语言
       localStorage.setItem("zzh_theme", this.theme); // 保存主题
@@ -739,6 +761,10 @@ export default {
       this.stdin = localStorage.getItem("zzh_stdin") || "";
       this.options.fontSize =
         parseInt(localStorage.getItem("zzh_fontsize")) || 18;
+      this.stdinSize =
+        parseInt(localStorage.getItem("zzh_fontsize1")) || 14;
+      this.stdoutSize =
+        parseInt(localStorage.getItem("zzh_fontsize2")) || 14;
       this.mode = localStorage.getItem("zzh_lang") || "cpp";
       this.$nextTick(() => {
         this.theme = localStorage.getItem("zzh_theme") || "vs";
