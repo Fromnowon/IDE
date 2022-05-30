@@ -871,7 +871,10 @@ export default {
                   // python运行错误特殊处理
                   const info = Base64.decode(e.stderr);
                   const key_info = info.split("\n")[0];
-                  const err_line = key_info.slice(key_info.lastIndexOf(' ') + 1);
+                  let err_line = key_info.slice(key_info.lastIndexOf(' ') + 1);
+                  if (isNaN(err_line)) { // 两种报错行号信息不一致
+                    err_line = (info.split("\n")[1]).replace(/[^0-9]/ig, '');
+                  }
                   const id = this.editor.getModel().deltaDecorations( // 直接标记整行
                     [],
                     [
