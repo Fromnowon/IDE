@@ -3,7 +3,7 @@
     <el-container>
       <el-header
         :height="barHeight + 'px'"
-        style="border-bottom: 1px solid rgba(144, 147, 153, 0.3)"
+        style="border-bottom: 1px solid rgba(144, 147, 153, 0.3); user-select: none"
       >
         <div
           class="bar"
@@ -57,10 +57,31 @@
                 <i v-else class="el-icon-caret-right"></i>
               </div>
             </el-tooltip>
+            <el-tooltip
+              class="item"
+              effect="dark"
+              :content="fileIOMode ? 'Standard IO' : 'File IO'"
+              placement="bottom"
+            >
+              <div
+              v-if="!fileIOMode"
+                class="btn_settings btn"
+                @click="fileIOMode = true"
+              >
+                <i class="el-icon-document"></i>
+              </div>
+              <div
+              v-else
+                class="btn_settings btn"
+                @click="fileIOMode = false"
+              >
+                <i class="el-icon-edit-outline"></i>
+              </div>
+            </el-tooltip>
             <el-popover placement="top" width="160" trigger="click">
-              <div style="text-align: center">
+              <div style="text-align: center; user-select: none">
                 <el-button type="text" @click="read">打 开</el-button>
-                <el-button type="text" @click="saveToLocal">保 存</el-button>
+                <el-button type="text" @click="saveToLocal(code, 0)">保 存</el-button>
               </div>
               <div slot="reference" class="btn_settings btn">
                 <i class="el-icon-folder"></i>
@@ -119,7 +140,6 @@
               :diffEditor="true"
               :value="code"
               :original="code_"
-              @editorDidMount="DiffMountHandler"
               @change="diffChangeHandler"
             />
           </div>
@@ -128,6 +148,7 @@
           :width="debug_width + 'px'"
           :style="{ width: debug_width + 'px' }"
         >
+        <div class="stdIO" v-show="!fileIOMode">
           <el-container>
             <div class="area_tip">
               Stdin
@@ -176,7 +197,7 @@
               }"
             >
               <MonacoEditor
-                v-if="debug_width > 0"
+                v-if="debug_width > 0 && !fileIOMode"
                 :style="{
                   height: debug_output_height - 20 + 'px',
                   width: debug_width,
@@ -208,6 +229,33 @@
               />
             </el-main>
           </el-container>
+        </div>
+        <div class="fileIO"  style="padding: 20px" v-show="fileIOMode">
+          <p style="font-size: 18px; font-weight: bold">输入：</p>
+          <el-upload
+          v-if="stdinIOInfo.content.length == 0"
+            drag
+            action=""
+            :on-change="fileUpload"
+            :show-file-list='false'
+            :auto-upload="false">
+            <i class="el-icon-upload"></i>
+            <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+          </el-upload>
+          <div v-else>
+            <el-tag>{{ stdinIOInfo.name }}</el-tag><el-tag type="info" style="margin-left: 10px">{{ stdinIOInfo.size }}</el-tag>
+            <el-button type="text" style="color: red" @click="stdinIOInfo.content = ''">删 除</el-button>
+            <pre>{{ stdinIOInfo.content.length > fileIOLimit ? stdinIOInfo.content.slice(0, fileIOLimit) + '...' : stdinIOInfo.content }}</pre>
+          </div>
+          <p style="font-size: 18px; font-weight: bold">输出：</p>
+          <pre style="color: lightgray" v-if="cost.length == 0">未运行</pre>
+          <pre>{{ stdout.length > fileIOLimit ? stdout.slice(0, fileIOLimit) + '...' : stdout }}</pre>
+          <pre>{{ cost }}</pre>
+          <div v-if="stdout.length > fileIOLimit">
+            <el-button type="text" @click="saveToLocal(stdout, 1)">下载输出数据</el-button>
+            <!-- <el-button type="text">对 比</el-button> -->
+          </div>
+        </div>
         </el-aside>
       </el-container>
     </el-container>
@@ -346,6 +394,13 @@ export default {
       code_: "",
       diff: false,
       stdin: "",
+      stdinIOInfo: {
+        name: '',
+        size: '',
+        content: ''
+      },
+      cost: '',
+      fileIOLimit: 50, // 限制文件IO模式预览数据长度
       stdinSize: 16,
       stdout: "",
       stdoutSize: 16,
@@ -359,6 +414,7 @@ export default {
       fun_hints: {}, // 函数补全
       decorations: [], // 错误行标记
       ondebug: false,
+      fileIOMode: false, // 输入输出模式
       tip: null,
       barHeight: 32,
       loadingInstance: null,
@@ -407,9 +463,6 @@ export default {
     },
     diffChangeHandler(v, e) {
       this.code = v;
-    },
-    DiffMountHandler() {
-      this.code_ = this.code;
     },
     manocoWillMountHandler(monaco) {
       window.monaco = monaco;
@@ -674,9 +727,9 @@ export default {
       // stdin获取焦点自动全选
       Event.target.select();
     },
-    saveToLocal() {
+    saveToLocal(cont, type) {
       //定义文件内容，类型必须为Blob 否则createObjectURL会报错
-      let content = new Blob([this.code]);
+      let content = new Blob([cont]);
       //生成url对象
       let urlObject = window.URL || window.webkitURL || window;
       let url = urlObject.createObjectURL(content);
@@ -684,10 +737,16 @@ export default {
       let el = document.createElement("a");
       //链接赋值
       el.href = url;
-      let fname =
-        "code-" +
-        moment(new Date()).format("YYYY-MM-DD HH:mm:ss") +
-        (this.mode == "cpp" ? ".cpp" : ".py");
+      let fname = '';
+      if (type == 0) {
+        fname =
+          "code-" +
+          moment(new Date()).format("YYYY-MM-DD HH:mm:ss") +
+          (this.mode == "cpp" ? ".cpp" : ".py");
+      }else fname = 
+          "output-" +
+          moment(new Date()).format("YYYY-MM-DD HH:mm:ss") +
+          '.out'
       el.download = fname;
       //必须点击否则不会下载
       el.click();
@@ -793,11 +852,11 @@ export default {
       });
 
       let code = Base64.encode(this.code);
-
       const _this = this;
       _this.ondebug = true;
       _this.stdout = "";
-      let stdin = _this.stdin;
+      _this.cost = "";
+      let stdin = this.fileIOMode ? Base64.encode(this.stdinIOInfo.content) : Base64.encode(this.stdin);
       if (stdin[stdin.length - 1] != "\n") stdin += "\n";
       axios
         .post(
@@ -805,9 +864,9 @@ export default {
           {
             source_code: code,
             language_id: _this.mode == "cpp" ? 54 : 71, // cpp python
-            stdin: Base64.encode(stdin),
+            stdin: stdin,
           },
-          { timeout: 5000 }
+          { timeout: 60000 }
         )
         .then((response) => {
           _this.token = response.data.token;
@@ -850,12 +909,22 @@ export default {
               if (e.status.id == 3) {
                 // 正常运行
                 _this.stdout = Base64.decode(e.stdout || ""); // 程序执行成功并返回结果与信息
-                _this.stdout +=
-                  "\n\ntime: " +
-                  parseFloat(e.time) * 1000 +
-                  " ms\nmemory: " +
-                  e.memory / 1000 +
-                  " MB";
+                if (!_this.fileIOMode) {
+                  _this.stdout +=
+                    "\n\ntime: " +
+                    parseFloat(e.time) * 1000 +
+                    " ms\nmemory: " +
+                    e.memory / 1000 +
+                    " MB";
+                }else {
+                  _this.cost =
+                    "\n\ntime: " +
+                    parseFloat(e.time) * 1000 +
+                    " ms\nmemory: " +
+                    e.memory / 1000 +
+                    " MB";
+                }
+
               } else {
                 console.log(e);
                 _this.$message({
@@ -978,6 +1047,30 @@ export default {
         } catch (error) {}
       });
     },
+    fileUpload(file) {
+        function getfilesize(size) {
+            var num = 1024.00; //byte
+            if (size < num)
+                return size + "B";
+            if (size < Math.pow(num, 2))
+                return (size / num).toFixed(2) + "KB"; //kb
+            if (size < Math.pow(num, 3))
+                return (size / Math.pow(num, 2)).toFixed(2) + "MB"; //M
+            if (size < Math.pow(num, 4))
+                return (size / Math.pow(num, 3)).toFixed(2) + "GB"; //G
+            return (size / Math.pow(num, 4)).toFixed(2) + "TB"; //T
+        }
+        this.stdout = '';
+        this.cost = '';
+        let reader = new FileReader();
+        reader.readAsText(file.raw, "UTF-8");
+        reader.onload = e => {
+            var content = e.target.result;
+            this.stdinIOInfo.content = content;
+            this.stdinIOInfo.name = file.name;
+            this.stdinIOInfo.size = getfilesize(file.size);
+        }
+    }
   },
   watch: {
     theme(v) {
@@ -999,6 +1092,15 @@ export default {
         this.$refs.manoco_diff.getModifiedEditor().layout();
       });
     },
+    fileIOMode(v) {
+      if (!this.debug_width) this.debug_width = 400;
+      this.stdout = '';
+      this.cost = '';
+    },
+    diff() {
+      this.code_ = this.code;
+      this.resize();
+    }
   },
 };
 </script>
@@ -1037,7 +1139,7 @@ export default {
   background: rgba(0, 0, 0, 0.205);
 }
 .items {
-  width: 250px;
+  width: 320px;
   position: relative;
   text-align: right;
 }
